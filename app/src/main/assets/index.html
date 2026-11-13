@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Android IP Camera</title>
   <style>
     body {
@@ -13,6 +14,7 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
+      height: 100dvh;
       overflow: hidden;
     }
 
@@ -254,26 +256,89 @@
     }
 
     @media (max-width: 900px) {
+      .header {
+        padding: 8px 10px;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .header h2 {
+        font-size: 15px !important;
+      }
+
+      .header .btn {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+
       .main {
         flex-direction: column;
       }
 
+      .stream-container {
+        flex: none;
+        height: 40dvh;
+        min-height: 200px;
+      }
+
       .controls-panel {
-        width: auto;
-        height: 45%;
+        flex: 1;
+        width: 100%;
+        height: auto;
+        box-sizing: border-box;
+        padding: 14px;
         border-left: none;
         border-top: 1px solid #333;
       }
 
       .playback-view {
         flex-direction: column !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .playback-player-area {
+        flex: none !important;
+        overflow: visible !important;
+        padding: 10px !important;
+        gap: 8px !important;
+      }
+
+      .playback-video-wrap {
+        min-height: 200px !important;
+        height: 32dvh;
+      }
+
+      .timeline-panel {
+        padding: 8px 10px !important;
       }
 
       .playback-sidebar {
-        width: auto !important;
-        height: 48% !important;
+        flex: none !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
         border-left: none !important;
         border-top: 1px solid #333;
+      }
+
+      .playback-event-list {
+        max-height: 52dvh;
+      }
+
+      .event-thumb {
+        width: 96px;
+        height: 38px;
+      }
+
+      .event-plate {
+        font-size: 17px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .header h2 {
+        display: none;
       }
     }
 
@@ -332,6 +397,7 @@
       height: 68px;
       display: block;
       cursor: pointer;
+      touch-action: none;
       border-radius: 4px;
       background: #090d16;
     }
@@ -461,16 +527,19 @@
 <body>
   <div class='header'>
     <div style="display:flex;align-items:center;gap:12px;">
-      <h2 style='margin:0;font-size:18px;'>Android IP Camera</h2>
+      <h2 style='margin:0;font-size:18px;' data-i18n="appTitle">Android IP 摄像头</h2>
       <div style="display:flex;gap:6px;">
-        <button id='liveTabBtn' class='btn active'>📹 实时监控</button>
-        <button id='playbackTabBtn' class='btn'>📼 过车回放</button>
+        <button id='liveTabBtn' class='btn active' data-i18n="tabLive">📹 实时监控</button>
+        <button id='playbackTabBtn' class='btn' data-i18n="tabPlayback">📼 过车回放</button>
       </div>
     </div>
-    <div id='liveHeaderTools' style="display:flex;gap:8px;">
-      <button id='fitBtn' class='btn active' onclick='setView("fit")'>Fit Screen</button>
-      <button id='origBtn' class='btn' onclick='setView("original")'>Original Size</button>
-      <button id='fullscreenBtn' class='btn' onclick='toggleFullscreen()'>⛶ Fullscreen</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div id='liveHeaderTools' style="display:flex;gap:8px;">
+        <button id='fitBtn' class='btn active' onclick='setView("fit")' data-i18n="btnFit">适应屏幕</button>
+        <button id='origBtn' class='btn' onclick='setView("original")' data-i18n="btnOriginal">原始大小</button>
+        <button id='fullscreenBtn' class='btn' onclick='toggleFullscreen()' data-i18n="btnFullscreen">⛶ 全屏</button>
+      </div>
+      <button id='langToggleBtn' class='btn' title='Switch Language / 切换语言'>🌐 EN</button>
     </div>
   </div>
 
@@ -480,7 +549,7 @@
         <span id="wifiStatus" title="WiFi Strength">🛜 --%</span>
         <span id="batteryStatus" title="Battery Status">🔋 --%</span>
       </div>
-      <div id="streamLoading" class="stream-loading">Loading...</div>
+      <div id="streamLoading" class="stream-loading" data-i18n="loading">加载中...</div>
       <canvas id='streamCanvas'></canvas>
       <canvas id='alprOverlayCanvas' style='position:absolute; inset:0; pointer-events:none; z-index:5;'></canvas>
       <audio id="audioEl" preload="none" muted></audio>
@@ -489,7 +558,7 @@
     <div class='controls-panel loading' id='controlsPanel'>
       <div class='controls-panel-loading' aria-live='polite'>
         <div class='spinner'></div>
-        <span>Loading settings…</span>
+        <span data-i18n="loadingSettings">正在加载设置…</span>
       </div>
 
       <div class='controls-content'>
@@ -497,70 +566,70 @@
         <div id="alpr-card" class='setting-group' style="border-left: 4px solid #38bdf8; background: #1e293b; transition: background-color 0.25s ease, border-color 0.25s ease;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <h3 id="alpr-title" style="color: #38bdf8; margin: 0;">ALPR 车牌识别</h3>
+              <h3 id="alpr-title" style="color: #38bdf8; margin: 0;" data-i18n="alprTitle">ALPR 车牌识别</h3>
               <span id="alpr-type" style="display: none; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.16); color: #e2e8f0;"></span>
             </div>
             <div style="display: flex; align-items: center; gap: 6px;">
               <span id="alpr-latency" style="font-size: 11px; color: #94a3b8;">--ms</span>
-              <button id="alpr-adv-toggle" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;">高级选项 ▾</button>
+              <button id="alpr-adv-toggle" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprAdvToggle">高级选项 ▾</button>
             </div>
           </div>
           <div style="display: flex; align-items: baseline; justify-content: space-between;">
-            <span id="alpr-plate" style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #fff;">等待检测...</span>
+            <span id="alpr-plate" style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #fff;" data-i18n="alprWaiting">等待检测...</span>
             <span id="alpr-meta" style="font-size: 12px; color: #cbd5e1;"></span>
           </div>
           <div id="alpr-adv-panel" style="display: none; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(148,163,184,0.3); color: #e2e8f0;">
-            <label for="alprDetLevel">检测精度 (DetLevel)</label>
+            <label for="alprDetLevel" data-i18n="alprDetLevel">检测精度 (DetLevel)</label>
             <select id="alprDetLevel" class="camera-select" style="margin-bottom: 10px;">
-              <option value="1">高精度 (DETECT_LEVEL_HIGH)</option>
-              <option value="0">低功耗 (DETECT_LEVEL_LOW)</option>
+              <option value="1" data-i18n="alprDetHigh">高精度 (DETECT_LEVEL_HIGH)</option>
+              <option value="0" data-i18n="alprDetLow">低功耗 (DETECT_LEVEL_LOW)</option>
             </select>
 
-            <label for="alprMaxNum">单帧最大车牌数 (MaxNum) <span class="val-badge" id="alprMaxNumVal">3</span></label>
+            <label for="alprMaxNum"><span data-i18n="alprMaxNum">单帧最大车牌数 (MaxNum)</span> <span class="val-badge" id="alprMaxNumVal">3</span></label>
             <input type="range" id="alprMaxNum" min="1" max="10" step="1" value="3">
 
-            <label for="alprBoxConf">检测框阈值 (BoxConfThreshold) <span class="val-badge" id="alprBoxConfVal">0.20</span></label>
+            <label for="alprBoxConf"><span data-i18n="alprBoxConf">检测框阈值 (BoxConfThreshold)</span> <span class="val-badge" id="alprBoxConfVal">0.20</span></label>
             <input type="range" id="alprBoxConf" min="0.05" max="0.95" step="0.05" value="0.20">
 
-            <label for="alprRecConf">识别置信度阈值 (RecConfThreshold) <span class="val-badge" id="alprRecConfVal">0.65</span></label>
+            <label for="alprRecConf"><span data-i18n="alprRecConf">识别置信度阈值 (RecConfThreshold)</span> <span class="val-badge" id="alprRecConfVal">0.65</span></label>
             <input type="range" id="alprRecConf" min="0.30" max="0.99" step="0.01" value="0.65">
 
-            <label for="alprThreads">CPU 推理线程数 (Threads) <span class="val-badge" id="alprThreadsVal">4</span></label>
+            <label for="alprThreads"><span data-i18n="alprThreads">CPU 推理线程数 (Threads)</span> <span class="val-badge" id="alprThreadsVal">4</span></label>
             <input type="range" id="alprThreads" min="1" max="8" step="1" value="4">
 
-            <label for="alprIntervalMs">车牌采样间隔 (Interval) <span class="val-badge" id="alprIntervalMsVal">200ms</span></label>
+            <label for="alprIntervalMs"><span data-i18n="alprIntervalMs">车牌采样间隔 (Interval)</span> <span class="val-badge" id="alprIntervalMsVal">200ms</span></label>
             <input type="range" id="alprIntervalMs" min="50" max="2000" step="50" value="200">
 
             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
               <span id="alpr-adv-status" style="font-size: 12px; color: #cbd5e1;"></span>
-              <button id="alpr-adv-apply" type="button" class="btn btn-action" style="width: auto; padding: 6px 14px; margin: 0;">应用并重载模型</button>
+              <button id="alpr-adv-apply" type="button" class="btn btn-action" style="width: auto; padding: 6px 14px; margin: 0;" data-i18n="alprApply">应用并重载模型</button>
             </div>
           </div>
         </div>
         <div id="alpr-extra-cards"></div>
 
         <div class='setting-group'>
-          <h3>Settings</h3>
+          <h3 data-i18n="settingsTitle">基础设置</h3>
           <div style="display:flex; gap:8px; align-items:flex-end; margin-bottom:15px;">
             <div style="width:calc(50% - 4px); min-width:0;">
-              <label for="cameraSelect">Camera <span class="val-badge" id="cameraFacingBadge">&mdash;</span></label>
+              <label for="cameraSelect"><span data-i18n="cameraLabel">摄像头</span> <span class="val-badge" id="cameraFacingBadge">&mdash;</span></label>
               <div class="camera-controls" style="margin-bottom:0;">
                 <select id="cameraSelect" class="camera-select" onchange='setCamera(this.value)'></select>
               </div>
             </div>
-            <button id="flashBtn" class="btn btn-action" style="width:calc(50% - 4px); margin-bottom:0;">💡 Flash On</button>
+            <button id="flashBtn" class="btn btn-action" style="width:calc(50% - 4px); margin-bottom:0;" data-i18n="flashOn">💡 开启闪光灯</button>
           </div>
 
           <div>
-            <button id="muteBtn" class="btn btn-action" style="width: 49%;">🔇 Unmute Audio</button>
-            <button id="pttBtn" class="btn btn-action" style="width: 49%; margin-bottom: 0;">🎙️ Hold to Talk</button>
+            <button id="muteBtn" class="btn btn-action" style="width: 49%;" data-i18n="unmuteAudio">🔇 开启声音</button>
+            <button id="pttBtn" class="btn btn-action" style="width: 49%; margin-bottom: 0;" data-i18n="holdToTalk">🎙️ 按住对讲</button>
           </div>
 
           <div id="audioControls">
-            <label for="avDelay">AV Sync Delay <span class='val-badge' id='avDelayVal'>2.5s</span></label>
+            <label for="avDelay"><span data-i18n="avDelayLabel">音画同步延迟</span> <span class='val-badge' id='avDelayVal'>2.5s</span></label>
             <input type='range' id='avDelay' min='0' max='5' step='0.1' value='2.5'>
 
-            <label for="audioGain">Audio Gain <span class='val-badge' id='audioGainVal'>1.0</span></label>
+            <label for="audioGain"><span data-i18n="audioGainLabel">音频增益</span> <span class='val-badge' id='audioGainVal'>1.0</span></label>
             <input id="audioGain" type='range' min='0.5' max='3.0' step='0.1' value='1.0' data-control='audio_gain'
               data-badge='audioGainVal'>
           </div>
@@ -571,30 +640,30 @@
           </div>
 
           <div style="margin-top: 8px; margin-bottom: 10px;">
-            <label for="bitrate">H.264 Bitrate (kbps, 0 = Auto)</label>
+            <label for="bitrate" data-i18n="bitrateLabel">H.264 码率 (kbps, 0 = 自动)</label>
             <input id="bitrate" type='number' min='0' max='20000' step='100' value='0' data-control='bitrate' style="margin-bottom: 8px;">
             <button id="allowLimitedSurfaceBtn" type="button" class="btn btn-action" style="width: 100%; margin-bottom: 0;">🔒 LIMITED GPU直出: 已关闭</button>
           </div>
 
-          <p class="group-title">Camera Control</p>
+          <p class="group-title" data-i18n="cameraControlTitle">相机控制</p>
 
-          <label for="resolutionSelect">Resolution <span class='val-badge' id='resolutionVal'>&mdash;</span></label>
+          <label for="resolutionSelect"><span data-i18n="resolutionLabel">分辨率</span> <span class='val-badge' id='resolutionVal'>&mdash;</span></label>
           <select id="resolutionSelect" style="margin-bottom: 20px" onchange='setResolution(this.value)'></select>
 
-          <label for="zoom">Zoom <span class='val-badge' id='zoomVal'>1.0x</span></label>
+          <label for="zoom"><span data-i18n="zoomLabel">变焦</span> <span class='val-badge' id='zoomVal'>1.0x</span></label>
           <input id="zoom" type='range' min='0.1' max='8.0' step='0.1' value='1.0' data-control='zoom'
             data-badge='zoomVal' data-fmt='suffix' data-suffix='x'>
 
-          <label for="exposure">Exposure <span class='val-badge' id='exposureVal'>0</span></label>
+          <label for="exposure"><span data-i18n="exposureLabel">曝光补偿</span> <span class='val-badge' id='exposureVal'>0</span></label>
           <input id="exposure" type='range' min='-10' max='10' step='1' value='0' data-control='exposure'
             data-badge='exposureVal'>
 
-          <label for="focusDistance">Focus <span class='val-badge' id='focusVal'>Auto</span></label>
+          <label for="focusDistance"><span data-i18n="focusLabel">对焦距离</span> <span class='val-badge' id='focusVal'>Auto</span></label>
           <input id="focusDistance" type='range' min='-0.05' max='1.0' step='0.05' value='-1'
             data-control='focus_distance' data-badge='focusVal' data-fmt='focus'>
 
           <div style="margin-bottom: 12px">
-            <label for="rotate">Rotation <span class='val-badge' id='rotateVal'>0°</span></label>
+            <label for="rotate"><span data-i18n="rotateLabel">画面旋转</span> <span class='val-badge' id='rotateVal'>0°</span></label>
             <input id="rotate" type="range" min="0" max="359" step="1" value="0" data-control="rotate"
               data-badge="rotateVal" data-fmt="suffix" data-suffix="°" style="margin-bottom: 8px;">
             <div style="display:flex;gap:8px;margin-bottom:8px;width:100%;">
@@ -607,81 +676,81 @@
 
           <label>
             <input type="checkbox" id="mirrorCheckbox" onchange="sendControl('mirror', this.checked ? 'true' : 'false')" style="margin:0;vertical-align:middle;">
-            <span style="vertical-align:middle;">Mirror</span>
+            <span style="vertical-align:middle;" data-i18n="mirrorLabel">镜像翻转</span>
           </label>
 
-          <p class="group-title">Post Processing</p>
+          <p class="group-title" data-i18n="postProcTitle">图像后处理</p>
 
-          <label for="scale">Scale <span class='val-badge' id='scaleVal'>1.0x</span></label>
+          <label for="scale"><span data-i18n="scaleLabel">缩放</span> <span class='val-badge' id='scaleVal'>1.0x</span></label>
           <input id="scale" type='range' min='0.5' max='2.0' step='0.1' value='1.0' data-control='scale'
             data-badge='scaleVal' data-fmt='suffix' data-suffix='x' data-setview='original'>
 
-          <label for="contrast">Contrast <span class='val-badge' id='contVal'>0</span></label>
+          <label for="contrast"><span data-i18n="contrastLabel">对比度</span> <span class='val-badge' id='contVal'>0</span></label>
           <input id="contrast" type='range' min='-50' max='50' step='10' value='0' data-control='contrast'
             data-badge='contVal'>
 
-          <label for="fps">Frame Rate (fps)</label>
+          <label for="fps" data-i18n="fpsLabel">帧率 (fps)</label>
           <input id="fps" type='number' min='1' max='60' value='30' data-control='fps'>
 
           <div style="margin-top:12px;">
-            <button id="resetDefaultsBtn" class="btn" style="width:100%;">Reset to defaults</button>
+            <button id="resetDefaultsBtn" class="btn" style="width:100%;" data-i18n="resetDefaults">恢复默认设置</button>
           </div>
 
           <div id="motionSettings" style="display:none;">
-            <p class="group-title">Motion Detection</p>
+            <p class="group-title" data-i18n="motionTitle">移动侦测</p>
 
             <label>
               <input type="checkbox" id="motionCheckbox" onchange="sendControl('motion_detection_enabled', this.checked ? 'true' : 'false')" style="margin:0;vertical-align:middle;">
-              <span style="vertical-align:middle;">Enable Motion Detection</span>
+              <span style="vertical-align:middle;" data-i18n="enableMotion">启用移动侦测</span>
             </label>
-            <div class="hint" style="margin:-2px 0 12px; font-size:12px; color:#ccc">
-              Keeps the camera running and reports motion to <a href="https://github.com/DigitallyRefined/android-ip-camera#-onvif-camera" target="_blank">ONVIF clients</a> (Home Assistant, UniFi Protect).
+            <div class="hint" style="margin:-2px 0 12px; font-size:12px; color:#ccc" data-i18n="motionHint">
+              保持相机运行并向 ONVIF 客户端（Home Assistant、UniFi Protect）上报动态事件。
             </div>
 
-            <label for="motionSensitivity">Sensitivity <span class='val-badge' id='motionSensitivityVal'>5</span></label>
+            <label for="motionSensitivity"><span data-i18n="motionSensLabel">灵敏度</span> <span class='val-badge' id='motionSensitivityVal'>5</span></label>
             <input id="motionSensitivity" type='range' min='1' max='10' step='1' value='5' data-control='motion_sensitivity' data-badge='motionSensitivityVal' style='margin-bottom: 0'>
           </div>
 
-          <p class="group-title">Snapshot</p>
+          <p class="group-title" data-i18n="snapshotTitle">抓拍与录像</p>
 
-          <label for="snapshotRes">Snapshot Resolution</label>
+          <label for="snapshotRes" data-i18n="snapshotResLabel">抓拍分辨率</label>
           <select id="snapshotRes" style="margin-bottom: 12px" data-control="snapshot_res">
-            <option value="stream">Match stream (fast)</option>
-            <option value="max">Max (full sensor)</option>
+            <option value="stream" data-i18n="snapMatchStream">跟随视频流（快速）</option>
+            <option value="max" data-i18n="snapMax">最高画质（传感器全分辨率）</option>
           </select>
           <div style="display:flex; gap:8px; margin-bottom:8px;">
-            <button id="recordToggleBtn" class="btn btn-action" style="flex:1 1 0; min-width:0; margin-bottom:0;" onclick="toggleRecording()">🔴 Record</button>
-            <button id="snapBtn" class="btn btn-action" style="flex:1 1 0; min-width:0; margin-bottom:0;" onclick="takeSnapshot()">📸 Take Snapshot</button>
+            <button id="recordToggleBtn" class="btn btn-action" style="flex:1 1 0; min-width:0; margin-bottom:0;" onclick="toggleRecording()" data-i18n="btnRecord">🔴 录像</button>
+            <button id="snapBtn" class="btn btn-action" style="flex:1 1 0; min-width:0; margin-bottom:0;" onclick="takeSnapshot()" data-i18n="btnSnap">📸 抓拍</button>
           </div>
           <div style="display:flex; justify-content:flex-end; align-items:center; gap:4px; margin-bottom:8px;">
-            <label style="margin:0; font-size:13px; color:#ccc; cursor:pointer;" title="Timer (seconds, 0 = instant)">⏱️</label>
+            <label style="margin:0; font-size:13px; color:#ccc; cursor:pointer;" title="延时抓拍（秒，0 为立即）" data-i18n-title="timerTitle">⏱️</label>
             <input type="number" id="timerInput" min="0" max="300" step="1" value="0"
               style="width:50px; padding:4px 6px; font-size:13px; text-align:center; background:#333; color:#fff; border:1px solid #555; border-radius:4px; margin:0;">
           </div>
 
-          <p class="group-title">24h 循环录像</p>
+          <p class="group-title" data-i18n="loopTitle">24h 循环录像</p>
           <button id="loopRecToggleBtn" type="button" class="btn btn-action" style="width:100%; margin-bottom:8px;">🔄 24h 循环录像: 已关闭</button>
           <div style="display:flex; gap:8px; margin-bottom:6px;">
             <div style="flex:1 1 0; min-width:0;">
-              <label for="loopSegMinutes">分段时长(分)</label>
+              <label for="loopSegMinutes" data-i18n="loopSegLabel">分段时长(分)</label>
               <select id="loopSegMinutes" class="camera-select" style="margin-bottom:0;">
-                <option value="1">1 分钟</option>
-                <option value="3">3 分钟</option>
-                <option value="5" selected>5 分钟</option>
-                <option value="10">10 分钟</option>
-                <option value="15">15 分钟</option>
-                <option value="30">30 分钟</option>
+                <option value="1" data-i18n="min1">1 分钟</option>
+                <option value="3" data-i18n="min3">3 分钟</option>
+                <option value="5" selected data-i18n="min5">5 分钟</option>
+                <option value="10" data-i18n="min10">10 分钟</option>
+                <option value="15" data-i18n="min15">15 分钟</option>
+                <option value="30" data-i18n="min30">30 分钟</option>
               </select>
             </div>
             <div style="flex:1 1 0; min-width:0;">
-              <label for="loopMaxStorageGb">容量上限(GB)</label>
+              <label for="loopMaxStorageGb" data-i18n="loopMaxGbLabel">容量上限(GB)</label>
               <input id="loopMaxStorageGb" type="number" min="1" max="128" step="1" value="4" style="margin-bottom:0;">
             </div>
           </div>
           <div id="loopRecMeta" style="font-size:12px; color:#94a3b8; margin-bottom:4px;">已录分段: -- · 已用: -- MB</div>
         </div>
 
-        <p class="notice">Some changes will momentarily restart the camera.</p>
+        <p class="notice" data-i18n="restartNotice">部分设置修改后会短暂重启相机。</p>
         <p class="version"><a href="https://github.com/DigitallyRefined/android-ip-camera" target="_blank">Android IP Camera <span id="appVersion"></span></a></p>
       </div>
     </div>
@@ -709,22 +778,22 @@
             <span id="playbackClockText" style="font-family:monospace;font-size:14px;font-weight:700;color:#38bdf8;margin-left:4px;">--:--:--</span>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <span style="font-size:11px;color:#94a3b8;">时间轨缩放:</span>
-            <button id="tlZoomAll" type="button" class="btn active" style="margin:0;padding:3px 8px;font-size:11px;">全部</button>
-            <button id="tlZoom1h" type="button" class="btn" style="margin:0;padding:3px 8px;font-size:11px;">1小时</button>
-            <button id="tlZoom15m" type="button" class="btn" style="margin:0;padding:3px 8px;font-size:11px;">15分钟</button>
-            <a id="playbackDownloadLink" href="#" target="_blank" class="btn" style="display:none;margin:0;padding:3px 9px;font-size:11px;">下载当前段</a>
+            <span style="font-size:11px;color:#94a3b8;" data-i18n="tlZoomLabel">时间轨缩放:</span>
+            <button id="tlZoomAll" type="button" class="btn active" style="margin:0;padding:3px 8px;font-size:11px;" data-i18n="tlZoomAll">全部</button>
+            <button id="tlZoom1h" type="button" class="btn" style="margin:0;padding:3px 8px;font-size:11px;" data-i18n="tlZoom1h">1小时</button>
+            <button id="tlZoom15m" type="button" class="btn" style="margin:0;padding:3px 8px;font-size:11px;" data-i18n="tlZoom15m">15分钟</button>
+            <a id="playbackDownloadLink" href="#" target="_blank" class="btn" style="display:none;margin:0;padding:3px 9px;font-size:11px;" data-i18n="pbDownload">下载当前段</a>
           </div>
         </div>
         <canvas id="playbackTimelineCanvas" class="timeline-canvas"></canvas>
         <div id="timelineTooltip" class="timeline-tooltip"></div>
-        <div id="playbackNowInfo" style="font-size:12px;color:#94a3b8;">拖动或点击时间轨任意位置，或点击右侧过车记录开始回放</div>
+        <div id="playbackNowInfo" style="font-size:12px;color:#94a3b8;" data-i18n="pbHint">拖动或点击时间轨任意位置，或点击右侧过车记录开始回放</div>
       </div>
 
       <div id="playbackFullSnapWrap" style="display:none;background:#161b26;border:1px solid #283244;border-radius:8px;padding:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:#94a3b8;">
-          <span id="playbackSnapTitle">全景抓拍</span>
-          <button id="playbackSnapClose" type="button" class="btn" style="padding:2px 8px;font-size:11px;">收起</button>
+          <span id="playbackSnapTitle" data-i18n="pbSnapTitle">全景抓拍</span>
+          <button id="playbackSnapClose" type="button" class="btn" style="padding:2px 8px;font-size:11px;" data-i18n="pbSnapClose">收起</button>
         </div>
         <img id="playbackFullSnap" alt="全景抓拍" style="max-width:100%;max-height:220px;border-radius:6px;display:block;margin:0 auto;">
       </div>
@@ -736,13 +805,13 @@
         <div id="pb-alpr-card" class="setting-group" style="margin-bottom:8px;border-left:4px solid #38bdf8;background:#1e293b;transition:background-color 0.25s ease,border-color 0.25s ease;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
             <div style="display:flex;align-items:center;gap:8px;">
-              <h3 id="pb-alpr-title" style="color:#38bdf8;margin:0;font-size:13px;">回放画面车牌</h3>
+              <h3 id="pb-alpr-title" style="color:#38bdf8;margin:0;font-size:13px;" data-i18n="pbAlprTitle">回放画面车牌</h3>
               <span id="pb-alpr-type" style="display:none;font-size:11px;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,0.16);color:#e2e8f0;"></span>
             </div>
             <span id="pb-alpr-conf" style="font-size:11px;color:#94a3b8;"></span>
           </div>
           <div style="display:flex;align-items:baseline;justify-content:space-between;">
-            <span id="pb-alpr-plate" style="font-size:24px;font-weight:bold;letter-spacing:2px;color:#fff;">等待过车...</span>
+            <span id="pb-alpr-plate" style="font-size:24px;font-weight:bold;letter-spacing:2px;color:#fff;" data-i18n="pbWaiting">等待过车...</span>
             <span id="pb-alpr-meta" style="font-size:12px;color:#cbd5e1;"></span>
           </div>
         </div>
@@ -751,37 +820,296 @@
 
       <div class="playback-search">
         <div style="display:flex;gap:6px;">
-          <input id="eventSearchInput" type="text" placeholder="搜索车牌号（如 粤B / 京A）" style="flex:1;margin:0;padding:7px 10px;">
-          <button id="eventSearchBtn" type="button" class="btn btn-action" style="width:auto;margin:0;padding:7px 14px;">检索</button>
+          <input id="eventSearchInput" type="text" placeholder="搜索车牌号（如 粤B / 京A）" data-i18n-placeholder="searchPlaceholder" style="flex:1;margin:0;padding:7px 10px;">
+          <button id="eventSearchBtn" type="button" class="btn btn-action" style="width:auto;margin:0;padding:7px 14px;" data-i18n="btnSearch">检索</button>
         </div>
         <div style="display:flex;gap:6px;align-items:center;">
           <select id="eventTypeSelect" class="camera-select" style="flex:1;margin:0;padding:6px 8px;">
-            <option value="">全部车牌类型</option>
-            <option value="0">蓝牌</option>
-            <option value="3">绿牌新能源</option>
-            <option value="1">黄牌单层</option>
-            <option value="9">黄牌双层</option>
-            <option value="2">白牌单层</option>
-            <option value="4">黑牌/港澳</option>
+            <option value="" data-i18n="typeAll">全部车牌类型</option>
+            <option value="0" data-i18n="type0">蓝牌</option>
+            <option value="3" data-i18n="type3">绿牌新能源</option>
+            <option value="1" data-i18n="type1">黄牌单层</option>
+            <option value="9" data-i18n="type9">黄牌双层</option>
+            <option value="2" data-i18n="type2">白牌单层</option>
+            <option value="4" data-i18n="type4">黑牌/港澳</option>
           </select>
-          <button id="eventRefreshBtn" type="button" class="btn" style="margin:0;padding:6px 10px;">刷新</button>
+          <button id="eventRefreshBtn" type="button" class="btn" style="margin:0;padding:6px 10px;" data-i18n="btnRefresh">刷新</button>
         </div>
       </div>
 
       <div id="eventList" class="playback-event-list">
-        <div style="color:#64748b;text-align:center;padding:24px 0;">切换到此页面后自动加载过车记录…</div>
+        <div style="color:#64748b;text-align:center;padding:24px 0;" data-i18n="eventsAutoLoad">切换到此页面后自动加载过车记录…</div>
       </div>
 
       <div class="playback-pager">
-        <button id="eventPrevBtn" type="button" class="btn" style="padding:4px 10px;">上一页</button>
+        <button id="eventPrevBtn" type="button" class="btn" style="padding:4px 10px;" data-i18n="btnPrev">上一页</button>
         <span id="eventPageInfo">第 1 页</span>
-        <button id="eventNextBtn" type="button" class="btn" style="padding:4px 10px;">下一页</button>
+        <button id="eventNextBtn" type="button" class="btn" style="padding:4px 10px;" data-i18n="btnNext">下一页</button>
       </div>
     </div>
   </div>
 
   <script>
     const getElById = (id) => document.getElementById(id);
+
+    // ---- 中英文国际化 (默认中文) ----
+    const I18N = {
+      zh: {
+        appTitle: 'Android IP 摄像头',
+        tabLive: '📹 实时监控',
+        tabPlayback: '📼 过车回放',
+        btnFit: '适应屏幕',
+        btnOriginal: '原始大小',
+        btnFullscreen: '⛶ 全屏',
+        loading: '加载中...',
+        loadingSettings: '正在加载设置…',
+        alprTitle: 'ALPR 车牌识别',
+        alprAdvToggle: '高级选项 ▾',
+        alprWaiting: '等待检测...',
+        alprDetLevel: '检测精度 (DetLevel)',
+        alprDetHigh: '高精度 (DETECT_LEVEL_HIGH)',
+        alprDetLow: '低功耗 (DETECT_LEVEL_LOW)',
+        alprMaxNum: '单帧最大车牌数 (MaxNum)',
+        alprBoxConf: '检测框阈值 (BoxConfThreshold)',
+        alprRecConf: '识别置信度阈值 (RecConfThreshold)',
+        alprThreads: 'CPU 推理线程数 (Threads)',
+        alprIntervalMs: '车牌采样间隔 (Interval)',
+        alprApply: '应用并重载模型',
+        settingsTitle: '基础设置',
+        cameraLabel: '摄像头',
+        flashOn: '💡 开启闪光灯',
+        flashOff: '🔦 关闭闪光灯',
+        unmuteAudio: '🔇 开启声音',
+        muteAudio: '🔊 静音',
+        holdToTalk: '🎙️ 按住对讲',
+        avDelayLabel: '音画同步延迟',
+        audioGainLabel: '音频增益',
+        bitrateLabel: 'H.264 码率 (kbps, 0 = 自动)',
+        limitedOn: '⚡ LIMITED GPU直出: 已开启 (实验)',
+        limitedOff: '🔒 LIMITED GPU直出: 已关闭',
+        cameraControlTitle: '相机控制',
+        resolutionLabel: '分辨率',
+        zoomLabel: '变焦',
+        exposureLabel: '曝光补偿',
+        focusLabel: '对焦距离',
+        rotateLabel: '画面旋转',
+        mirrorLabel: '镜像翻转',
+        postProcTitle: '图像后处理',
+        scaleLabel: '缩放',
+        contrastLabel: '对比度',
+        fpsLabel: '帧率 (fps)',
+        resetDefaults: '恢复默认设置',
+        motionTitle: '移动侦测',
+        enableMotion: '启用移动侦测',
+        motionHint: '保持相机运行并向 ONVIF 客户端（Home Assistant、UniFi Protect）上报动态事件。',
+        motionSensLabel: '灵敏度',
+        snapshotTitle: '抓拍与录像',
+        snapshotResLabel: '抓拍分辨率',
+        snapMatchStream: '跟随视频流（快速）',
+        snapMax: '最高画质（传感器全分辨率）',
+        btnRecord: '🔴 录像',
+        btnStopRecord: '⏹ 停止录像',
+        btnSnap: '📸 抓拍',
+        timerTitle: '延时抓拍（秒，0 为立即）',
+        loopTitle: '24h 循环录像',
+        loopOn: '🔴 24h 循环录像: 运行中 (点击停止)',
+        loopOff: '🔄 24h 循环录像: 已关闭',
+        loopSegLabel: '分段时长(分)',
+        loopMaxGbLabel: '容量上限(GB)',
+        loopMeta: '已录分段: {count} · 已用: {mb} MB',
+        min1: '1 分钟', min3: '3 分钟', min5: '5 分钟', min10: '10 分钟', min15: '15 分钟', min30: '30 分钟',
+        restartNotice: '部分设置修改后会短暂重启相机。',
+        pbPlay: '▶ 播放',
+        pbPause: '⏸ 暂停',
+        tlZoomLabel: '时间轨缩放:',
+        tlZoomAll: '全部',
+        tlZoom1h: '1小时',
+        tlZoom15m: '15分钟',
+        pbDownload: '下载当前段',
+        pbHint: '拖动或点击时间轨任意位置，或点击右侧过车记录开始回放',
+        pbSnapTitle: '全景抓拍',
+        pbSnapClose: '收起',
+        pbAlprTitle: '回放画面车牌',
+        pbAlprTitleN: '回放画面车牌 #{n}',
+        pbWaiting: '等待过车...',
+        searchPlaceholder: '搜索车牌号（如 粤B / 京A）',
+        btnSearch: '检索',
+        typeAll: '全部车牌类型',
+        type0: '蓝牌', type1: '黄牌单层', type2: '白牌单层', type3: '绿牌新能源',
+        type4: '黑牌港澳', type5: '香港单层', type6: '香港双层', type7: '澳门单层',
+        type8: '澳门双层', type9: '黄牌双层', typeUnknown: '未知类型',
+        btnRefresh: '刷新',
+        eventsAutoLoad: '切换到此页面后自动加载过车记录…',
+        eventsLoading: '加载中…',
+        eventsEmpty: '暂无匹配的过车记录',
+        eventsError: '加载过车记录失败',
+        btnPrev: '上一页',
+        btnNext: '下一页',
+        pageInfo: '第 {page} 页 ({count} 条)',
+        offsetPrefix: '偏移',
+        noVideoHint: '⚠️ 未关联录像（仅抓拍）',
+        playingSeg: '正在播放: {name}',
+        seamlessNext: '无缝续播: {name}',
+        seekWall: '时间轨定位: {time}',
+        seekEvent: '车牌 {plate} · {time} (提前2秒预卷)',
+        noVideoSnapOnly: '车牌 {plate} 无关联录像文件，已展示全景抓拍',
+        snapEventTitle: '全景抓拍: {plate} ({time})'
+      },
+      en: {
+        appTitle: 'Android IP Camera',
+        tabLive: '📹 Live View',
+        tabPlayback: '📼 Playback',
+        btnFit: 'Fit Screen',
+        btnOriginal: 'Original Size',
+        btnFullscreen: '⛶ Fullscreen',
+        loading: 'Loading...',
+        loadingSettings: 'Loading settings…',
+        alprTitle: 'ALPR Plate',
+        alprAdvToggle: 'Advanced ▾',
+        alprWaiting: 'Waiting...',
+        alprDetLevel: 'Detection Level (DetLevel)',
+        alprDetHigh: 'High Accuracy (DETECT_LEVEL_HIGH)',
+        alprDetLow: 'Low Power (DETECT_LEVEL_LOW)',
+        alprMaxNum: 'Max Plates / Frame (MaxNum)',
+        alprBoxConf: 'Box Confidence (BoxConfThreshold)',
+        alprRecConf: 'Rec Confidence (RecConfThreshold)',
+        alprThreads: 'CPU Threads (Threads)',
+        alprIntervalMs: 'Sample Interval (Interval)',
+        alprApply: 'Apply & Reload Model',
+        settingsTitle: 'Settings',
+        cameraLabel: 'Camera',
+        flashOn: '💡 Flash On',
+        flashOff: '🔦 Flash Off',
+        unmuteAudio: '🔇 Unmute Audio',
+        muteAudio: '🔊 Mute Audio',
+        holdToTalk: '🎙️ Hold to Talk',
+        avDelayLabel: 'AV Sync Delay',
+        audioGainLabel: 'Audio Gain',
+        bitrateLabel: 'H.264 Bitrate (kbps, 0 = Auto)',
+        limitedOn: '⚡ LIMITED GPU Surface: ON (Exp)',
+        limitedOff: '🔒 LIMITED GPU Surface: OFF',
+        cameraControlTitle: 'Camera Control',
+        resolutionLabel: 'Resolution',
+        zoomLabel: 'Zoom',
+        exposureLabel: 'Exposure',
+        focusLabel: 'Focus',
+        rotateLabel: 'Rotation',
+        mirrorLabel: 'Mirror',
+        postProcTitle: 'Post Processing',
+        scaleLabel: 'Scale',
+        contrastLabel: 'Contrast',
+        fpsLabel: 'Frame Rate (fps)',
+        resetDefaults: 'Reset to defaults',
+        motionTitle: 'Motion Detection',
+        enableMotion: 'Enable Motion Detection',
+        motionHint: 'Keeps the camera running and reports motion to ONVIF clients (Home Assistant, UniFi Protect).',
+        motionSensLabel: 'Sensitivity',
+        snapshotTitle: 'Snapshot & Recording',
+        snapshotResLabel: 'Snapshot Resolution',
+        snapMatchStream: 'Match stream (fast)',
+        snapMax: 'Max (full sensor)',
+        btnRecord: '🔴 Record',
+        btnStopRecord: '⏹ Stop',
+        btnSnap: '📸 Take Snapshot',
+        timerTitle: 'Timer (seconds, 0 = instant)',
+        loopTitle: '24h Loop Recording',
+        loopOn: '🔴 24h Loop Recording: ON (Click to Stop)',
+        loopOff: '🔄 24h Loop Recording: OFF',
+        loopSegLabel: 'Segment (min)',
+        loopMaxGbLabel: 'Max Storage (GB)',
+        loopMeta: 'Segments: {count} · Used: {mb} MB',
+        min1: '1 min', min3: '3 min', min5: '5 min', min10: '10 min', min15: '15 min', min30: '30 min',
+        restartNotice: 'Some changes will momentarily restart the camera.',
+        pbPlay: '▶ Play',
+        pbPause: '⏸ Pause',
+        tlZoomLabel: 'Timeline Zoom:',
+        tlZoomAll: 'All',
+        tlZoom1h: '1h',
+        tlZoom15m: '15m',
+        pbDownload: 'Download MP4',
+        pbHint: 'Drag or click anywhere on the timeline, or click a passing event on the right',
+        pbSnapTitle: 'Full Snapshot',
+        pbSnapClose: 'Hide',
+        pbAlprTitle: 'Playback Plate',
+        pbAlprTitleN: 'Playback Plate #{n}',
+        pbWaiting: 'Waiting...',
+        searchPlaceholder: 'Search plate (e.g. ABC)',
+        btnSearch: 'Search',
+        typeAll: 'All Plate Types',
+        type0: 'Blue', type1: 'Yellow (1-row)', type2: 'White (1-row)', type3: 'Green EV',
+        type4: 'Black HK/MO', type5: 'HK (1-row)', type6: 'HK (2-row)', type7: 'Macau (1-row)',
+        type8: 'Macau (2-row)', type9: 'Yellow (2-row)', typeUnknown: 'Unknown',
+        btnRefresh: 'Refresh',
+        eventsAutoLoad: 'Events will load automatically when opened…',
+        eventsLoading: 'Loading…',
+        eventsEmpty: 'No matching vehicle events',
+        eventsError: 'Failed to load events',
+        btnPrev: 'Prev',
+        btnNext: 'Next',
+        pageInfo: 'Page {page} ({count})',
+        offsetPrefix: 'Offset',
+        noVideoHint: '⚠️ No video linked (snapshot only)',
+        playingSeg: 'Playing: {name}',
+        seamlessNext: 'Seamless next: {name}',
+        seekWall: 'Timeline seek: {time}',
+        seekEvent: 'Plate {plate} · {time} (2s pre-roll)',
+        noVideoSnapOnly: 'Plate {plate} has no video file; showing snapshot',
+        snapEventTitle: 'Full Snapshot: {plate} ({time})'
+      }
+    };
+
+    let currentLang = 'zh';
+    try {
+      const saved = localStorage.getItem('webui_lang');
+      if (saved === 'en' || saved === 'zh') currentLang = saved;
+    } catch (_) {}
+
+    function t(key, vars) {
+      const dict = I18N[currentLang] || I18N.zh;
+      let str = dict[key] ?? I18N.zh[key] ?? key;
+      if (vars) {
+        for (const [k, v] of Object.entries(vars)) {
+          str = str.replaceAll(`{${k}}`, String(v));
+        }
+      }
+      return str;
+    }
+
+    function plateTypeLabel(type) {
+      const k = `type${type}`;
+      return (I18N[currentLang] && I18N[currentLang][k]) ? t(k) : t('typeUnknown');
+    }
+
+    const languageChangeListeners = [];
+    function applyLanguage(lang) {
+      currentLang = lang === 'en' ? 'en' : 'zh';
+      try { localStorage.setItem('webui_lang', currentLang); } catch (_) {}
+      document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
+      const btn = getElById('langToggleBtn');
+      if (btn) btn.textContent = currentLang === 'zh' ? '🌐 EN' : '🌐 中文';
+
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (key) el.textContent = t(key);
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (key) el.placeholder = t(key);
+      });
+      document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        const key = el.getAttribute('data-i18n-title');
+        if (key) el.title = t(key);
+      });
+
+      languageChangeListeners.forEach(fn => { try { fn(currentLang); } catch (_) {} });
+    }
+
+    const langToggleBtn = getElById('langToggleBtn');
+    if (langToggleBtn) {
+      langToggleBtn.addEventListener('click', () => {
+        applyLanguage(currentLang === 'zh' ? 'en' : 'zh');
+      });
+    }
 
     let currentCamera = '';
     const audioEl = getElById('audioEl');
@@ -844,13 +1172,14 @@
 
     function updateMuteButton() {
       muteBtn.textContent = audioEl.muted
-        ? '🔇 Unmute Audio'
-        : '🔊 Mute Audio';
+        ? t('unmuteAudio')
+        : t('muteAudio');
 
       audioControls.style.display = audioEl.muted
         ? 'none'
         : 'block';
     }
+    languageChangeListeners.push(updateMuteButton);
 
     const flashBtn = getElById('flashBtn');
     function setTorchState(state) {
@@ -868,10 +1197,11 @@
       flashBtn.style.display = visible ? 'inline-block' : 'none';
       if (visible) {
         flashBtn.textContent = (torchState === 'on')
-          ? '⚡ Flash Off'
-          : '💡 Flash On';
+          ? t('flashOff')
+          : t('flashOn');
       }
     }
+    languageChangeListeners.push(updateFlashButton);
 
     if (flashBtn) {
       flashBtn.addEventListener('click', () => {
@@ -1825,11 +2155,12 @@
       if (allowLimitedBtn && settings.allowLimitedSurface !== undefined) {
         let allowLimited = settings.allowLimitedSurface === true || settings.allowLimitedSurface === 'true';
         function renderAllowLimitedBtn() {
-          allowLimitedBtn.innerText = allowLimited ? '🚀 LIMITED GPU直出: 已开启' : '🔒 LIMITED GPU直出: 已关闭';
+          allowLimitedBtn.innerText = allowLimited ? t('limitedOn') : t('limitedOff');
           allowLimitedBtn.style.background = allowLimited ? '#0284c7' : '';
         }
         renderAllowLimitedBtn();
         if (!allowLimitedBtn.dataset.bound) {
+          languageChangeListeners.push(renderAllowLimitedBtn);
           allowLimitedBtn.dataset.bound = '1';
           allowLimitedBtn.addEventListener('click', () => {
             allowLimited = !allowLimited;
@@ -1984,7 +2315,7 @@
         }
       } else {
         if (toggleBtn) {
-          toggleBtn.textContent = '🔴 Record';
+          toggleBtn.textContent = t('btnRecord');
           toggleBtn.style.background = '';
           toggleBtn.style.borderColor = '';
         }
@@ -2491,16 +2822,19 @@
       if (!toggleBtn) return;
 
       let loopEnabled = false;
+      let lastLoopState = null;
 
       function applyLoopState(st) {
         if (!st || typeof st.enabled === 'undefined') return;
+        lastLoopState = st;
         loopEnabled = Boolean(st.enabled);
-        toggleBtn.innerText = loopEnabled ? '🔴 24h 循环录像: 运行中 (点击停止)' : '🔄 24h 循环录像: 已关闭';
+        toggleBtn.innerText = loopEnabled ? t('loopOn') : t('loopOff');
         toggleBtn.style.background = loopEnabled ? '#b91c1c' : '';
         if (segEl && st.segmentMinutes) segEl.value = String(st.segmentMinutes);
         if (maxGbEl && st.maxStorageGb) maxGbEl.value = String(st.maxStorageGb);
-        if (metaEl) metaEl.innerText = `已录分段: ${st.fileCount ?? 0} · 已用: ${st.usedMb ?? 0} MB`;
+        if (metaEl) metaEl.innerText = t('loopMeta', { count: st.fileCount ?? 0, mb: st.usedMb ?? 0 });
       }
+      languageChangeListeners.push(() => { if (lastLoopState) applyLoopState(lastLoopState); });
 
       function saveLoopConfig(nextEnabled) {
         const qs = new URLSearchParams({
@@ -2654,8 +2988,9 @@
       function updatePlayPauseBtn() {
         if (!playPauseBtn) return;
         const v = getActiveVideo();
-        playPauseBtn.textContent = v.paused ? '▶ 播放' : '⏸ 暂停';
+        playPauseBtn.textContent = v.paused ? t('pbPlay') : t('pbPause');
       }
+      languageChangeListeners.push(updatePlayPauseBtn);
 
       if (playPauseBtn) {
         playPauseBtn.addEventListener('click', () => {
@@ -2947,6 +3282,24 @@
         tlCanvas.addEventListener('mouseleave', () => {
           if (tlTooltip) tlTooltip.style.display = 'none';
         });
+        tlCanvas.addEventListener('touchstart', (e) => {
+          if (!e.touches || !e.touches.length) return;
+          isDraggingTl = true;
+          seekToWallTime(clientXToWallMs(e.touches[0].clientX));
+          e.preventDefault();
+        }, { passive: false });
+        tlCanvas.addEventListener('touchmove', (e) => {
+          if (!isDraggingTl || !e.touches || !e.touches.length) return;
+          seekToWallTime(clientXToWallMs(e.touches[0].clientX));
+          e.preventDefault();
+        }, { passive: false });
+        tlCanvas.addEventListener('touchend', () => { isDraggingTl = false; });
+        window.addEventListener('resize', () => {
+          if (playbackView.style.display !== 'none') {
+            drawTimeline();
+            if (currentWallMs > 0) renderPlaybackCardAndOverlay(currentWallMs);
+          }
+        });
       }
 
       function renderPlaybackCardAndOverlay(wallMs) {
@@ -3127,10 +3480,19 @@
       bindVideoEvents(videoA, 0);
       bindVideoEvents(videoB, 1);
 
+      let lastRenderedEvents = null;
+      languageChangeListeners.push(() => {
+        lastPbCardKey = null;
+        if (playbackView.style.display !== 'none' && lastRenderedEvents) {
+          renderEvents(lastRenderedEvents);
+        }
+      });
+
       function renderEvents(events) {
+        lastRenderedEvents = events;
         if (!eventListEl) return;
         if (!events || events.length === 0) {
-          eventListEl.innerHTML = '<div style="color:#64748b;text-align:center;padding:28px 12px;">暂无匹配的过车记录</div>';
+          eventListEl.innerHTML = `<div style="color:#64748b;text-align:center;padding:28px 12px;">${t('eventsEmpty')}</div>`;
           return;
         }
         eventListEl.innerHTML = '';
@@ -3166,7 +3528,7 @@
           typeSpan.style.background = st.bg;
           typeSpan.style.color = st.text;
           typeSpan.style.border = `1px solid ${st.border}`;
-          typeSpan.textContent = st.label;
+          typeSpan.textContent = plateTypeLabel(ev.plateType);
           topRow.appendChild(typeSpan);
 
           const confSpan = document.createElement('span');
@@ -3179,8 +3541,8 @@
           const meta = document.createElement('div');
           meta.className = 'event-meta';
           const videoHint = ev.videoFile
-            ? `📹 ${formatHms(ev.eventTimeMs)} · 偏移 ${formatOffset(ev.videoOffsetMs)}`
-            : '⚠️ 未关联录像（仅抓拍）';
+            ? `📹 ${formatHms(ev.eventTimeMs)} · ${t('offsetPrefix')} ${formatOffset(ev.videoOffsetMs)}`
+            : t('noVideoHint');
           meta.innerHTML = `<div>${formatTime(ev.eventTimeMs)}</div><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${videoHint}</div>`;
 
           info.appendChild(topRow);
@@ -3195,7 +3557,7 @@
 
             if (ev.snapImg && fullSnapWrap && fullSnapImg) {
               fullSnapImg.src = `/api/events/image?file=${encodeURIComponent(ev.snapImg)}`;
-              if (snapTitleEl) snapTitleEl.textContent = `全景抓拍: ${ev.plateCode || '--'} (${formatTime(ev.eventTimeMs)})`;
+              if (snapTitleEl) snapTitleEl.textContent = t('snapEventTitle', { plate: ev.plateCode || '--', time: formatTime(ev.eventTimeMs) });
               fullSnapWrap.style.display = 'block';
             }
 
@@ -3208,13 +3570,13 @@
                 playSegmentAt(
                   segIdx,
                   preRollSec,
-                  `车牌 ${ev.plateCode || '--'} · ${formatTime(ev.eventTimeMs)} (提前2秒预卷)`
+                  t('seekEvent', { plate: ev.plateCode || '--', time: formatTime(ev.eventTimeMs) })
                 );
               } else {
                 seekToWallTime(currentWallMs);
               }
             } else if (nowInfoEl) {
-              nowInfoEl.textContent = `车牌 ${ev.plateCode || '--'} 无关联录像文件，已展示全景抓拍`;
+              nowInfoEl.textContent = t('noVideoSnapOnly', { plate: ev.plateCode || '--' });
             }
           });
 
@@ -3231,7 +3593,7 @@
         }).toString();
 
         if (eventListEl) {
-          eventListEl.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:24px 0;">加载中…</div>';
+          eventListEl.innerHTML = `<div style="color:#94a3b8;text-align:center;padding:24px 0;">${t('eventsLoading')}</div>`;
         }
 
         fetch(`/api/events?${qs}`, { credentials: 'include', cache: 'no-store' })
@@ -3240,13 +3602,13 @@
             const events = Array.isArray(data.events) ? data.events : [];
             renderEvents(events);
             const pageNum = Math.floor(currentOffset / PAGE_SIZE) + 1;
-            if (pageInfoEl) pageInfoEl.textContent = `第 ${pageNum} 页 (${events.length} 条)`;
+            if (pageInfoEl) pageInfoEl.textContent = t('pageInfo', { page: pageNum, count: events.length });
             if (prevBtn) prevBtn.disabled = currentOffset <= 0;
             if (nextBtn) nextBtn.disabled = events.length < PAGE_SIZE;
           })
           .catch(() => {
             if (eventListEl) {
-              eventListEl.innerHTML = '<div style="color:#f87171;text-align:center;padding:24px 0;">加载过车记录失败</div>';
+              eventListEl.innerHTML = `<div style="color:#f87171;text-align:center;padding:24px 0;">${t('eventsError')}</div>`;
             }
           });
       }
@@ -3277,6 +3639,8 @@
         });
       }
     })();
+
+    applyLanguage(currentLang);
     
   </script>
 </body>
