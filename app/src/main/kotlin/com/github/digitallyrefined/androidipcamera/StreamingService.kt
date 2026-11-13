@@ -364,6 +364,14 @@ class StreamingService : LifecycleService() {
                 onRecordStatus = { getRecordingStatus() },
                 // /control/stop must also drop RTSP viewers, which the HTTP server does not own.
                 onStreamingEnabledChanged = { enabled -> if (!enabled) rtspServer?.disconnectAll() }
+                // 传递车牌识别状态给前端
+                onPlateStatus = {
+                    val recognizer = cameraXCapture?.plateRecognizer
+                    val plate = recognizer?.latestPlate ?: ""
+                    val conf = recognizer?.latestConfidence ?: 0f
+                    val ts = recognizer?.latestTimestamp ?: 0L
+                    """{"plate":"$plate","confidence":$conf,"time":$ts}"""
+                }
             )
             // Initialize encoders with the streaming server helper
             h264StreamingEncoder = H264StreamingEncoder(this, streamingServerHelper!!) { Log.i(TAG, "H264: $it"); onLog?.invoke(it) }

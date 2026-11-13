@@ -58,6 +58,9 @@ class CameraXCapture(
     private val onEncoderSurfaceFallback: (() -> Unit)? = null,
     private val onFrame: (ImageProxy) -> Unit
 ) : CaptureBackend {
+
+    val plateRecognizer by lazy { PlateRecognizer(ctx) }
+
     @Volatile override var width = desired.width; private set
     @Volatile override var height = desired.height; private set
     @Volatile override var ready = false; private set
@@ -159,6 +162,14 @@ class CameraXCapture(
                                     if (nv21RowBuffer == null || nv21RowBuffer!!.size < img.planes[0].rowStride) {
                                         nv21RowBuffer = ByteArray(img.planes[0].rowStride)
                                     }
+
+                                    // 将nv12数据传给车牌识别器进行识别
+                                    plateRecognizer.processNv21Async(
+                                        nv21Source = it,
+                                        width = crop.width(),
+                                        height = crop.height(),
+                                        rotationDegrees = img.imageInfo.rotationDegrees
+                                    )
                                 }
                             }
                             latestNv21 = nv21

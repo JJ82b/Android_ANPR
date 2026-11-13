@@ -296,6 +296,15 @@
       </div>
 
       <div class='controls-content'>
+        <!-- 新增：实时车牌识别看板 -->
+        <div class='setting-group' style="border-left: 4px solid #38bdf8; background: #1e293b;">
+          <h3 style="color: #38bdf8; margin-bottom: 8px;">ALPR 车牌识别</h3>
+          <div style="display: flex; align-items: baseline; justify-content: space-between;">
+            <span id="alpr-plate" style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #fff;">等待检测...</span>
+            <span id="alpr-meta" style="font-size: 12px; color: #94a3b8;"></span>
+          </div>
+        </div>
+
         <div class='setting-group'>
           <h3>Settings</h3>
           <div style="display:flex; gap:8px; align-items:flex-end; margin-bottom:15px;">
@@ -1853,6 +1862,28 @@
         }
       });
     }
+
+    // ---- 定时轮询 HyperLPR3 车牌识别结果 ----
+    let lastPlateTs = 0;
+    setInterval(() => {
+      fetch('/api/plate', { credentials: 'include', cache: 'no-store' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.plate && data.time !== lastPlateTs) {
+            lastPlateTs = data.time;
+            const plateEl = getElById('alpr-plate');
+            const metaEl = getElById('alpr-meta');
+            if (plateEl) plateEl.innerText = data.plate;
+            if (metaEl) {
+              const pct = (data.confidence * 100).toFixed(1);
+              const timeStr = new Date(data.time).toLocaleTimeString();
+              metaEl.innerText = `${pct}% · ${timeStr}`;
+            }
+          }
+        })
+        .catch(() => {});
+    }, 800);
+    
   </script>
 </body>
 

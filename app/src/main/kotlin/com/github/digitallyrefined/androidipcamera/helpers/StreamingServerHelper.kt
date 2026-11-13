@@ -61,6 +61,10 @@ class StreamingServerHelper(
     private val onRecordStop: () -> Triple<Boolean, String, String> = { Triple(false, "409 Conflict", """{"error":"not_recording"}""") },
     private val onRecordStatus: () -> String = { """{"recording":false}""" },
     private val onStreamingEnabledChanged: (Boolean) -> Unit = {}
+    // 新加入车牌识别variables
+    private val onStreamingEnabledChanged: (Boolean) -> Unit = {},
+    private val onPlateStatus: () -> String = { """{"plate":"","confidence":0,"time":0}""" }
+
 ) {
     data class Client(
         val socket: Socket,
@@ -931,6 +935,18 @@ class StreamingServerHelper(
                 val info = buildDeviceInfo()
                 writer.print("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n")
                 writer.print(info.toJsonString()); writer.flush()
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+
+            if (path == "/api/plate") {
+                val json = onPlateStatus()
+                writer.print("HTTP/1.1 200 OK\r\n")
+                writer.print("Content-Type: application/json; charset=utf-8\r\n")
+                writer.print("Cache-Control: no-cache\r\n")
+                writer.print("Connection: close\r\n\r\n")
+                writer.print(json)
+                writer.flush()
                 try { socket.close() } catch (_: Exception) {}
                 return
             }
