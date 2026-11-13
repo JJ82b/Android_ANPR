@@ -26,7 +26,11 @@ data class PlateEvent(
     val videoFile: String?,
     val videoOffsetMs: Long,
     val plateImgName: String?,
-    val snapImgName: String?
+    val snapImgName: String?,
+    val boxX1: Float = 0f,
+    val boxY1: Float = 0f,
+    val boxX2: Float = 0f,
+    val boxY2: Float = 0f
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", id)
@@ -39,6 +43,12 @@ data class PlateEvent(
         put("videoOffsetMs", videoOffsetMs)
         put("plateImg", plateImgName ?: JSONObject.NULL)
         put("snapImg", snapImgName ?: JSONObject.NULL)
+        put("box", JSONObject().apply {
+            put("x1", boxX1.toDouble())
+            put("y1", boxY1.toDouble())
+            put("x2", boxX2.toDouble())
+            put("y2", boxY2.toDouble())
+        })
     }
 }
 
@@ -57,7 +67,7 @@ class PlateEventStore private constructor(context: Context) :
     companion object {
         private const val TAG = "PlateEventStore"
         private const val DB_NAME = "anpr_events.db"
-        private const val DB_VERSION = 1
+        private const val DB_VERSION = 2
         private const val TABLE_EVENTS = "plate_events"
         private const val DEDUP_WINDOW_MS = 15_000L
         private const val MAX_EVENTS_KEEP = 5000
@@ -84,7 +94,11 @@ class PlateEventStore private constructor(context: Context) :
                 video_file TEXT,
                 video_offset_ms INTEGER NOT NULL DEFAULT 0,
                 plate_img TEXT,
-                snap_img TEXT
+                snap_img TEXT,
+                box_x1 REAL NOT NULL DEFAULT 0,
+                box_y1 REAL NOT NULL DEFAULT 0,
+                box_x2 REAL NOT NULL DEFAULT 0,
+                box_y2 REAL NOT NULL DEFAULT 0
             )
             """.trimIndent()
         )
@@ -93,7 +107,16 @@ class PlateEventStore private constructor(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // 后续版本升级在此处理表迁移
+        if (oldVersion < 2) {
+            try {
+                db.execSQL("ALTER TABLE $TABLE_EVENTS ADD COLUMN box_x1 REAL NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE $TABLE_EVENTS ADD COLUMN box_y1 REAL NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE $TABLE_EVENTS ADD COLUMN box_x2 REAL NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE $TABLE_EVENTS ADD COLUMN box_y2 REAL NOT NULL DEFAULT 0")
+            } catch (e: Exception) {
+                Log.w(TAG, "onUpgrade v2 failed: ${e.message}")
+            }
+        }
     }
 
     /**
@@ -115,6 +138,13 @@ class PlateEventStore private constructor(context: Context) :
         val offsetMs = if (!videoFile.isNullOrBlank() && videoStartMs > 0L) {
             (now - videoStartMs).coerceAtLeast(0L)
         } else 0L
+        val rot = ((rotationDegrees % 360) + 360) % 360
+        val uprightW = (if (rot == 90 || rot == 270) height else width).coerceAtLeast(1)
+        val uprightH = (if (rot == 90 || rot == 270) width else height).coerceAtLeast(1)
+        val nx1 = (plate.x1 / uprightW).coerceIn(0f, 1f)
+        val ny1 = (plate.y1 / uprightH).coerceIn(0f, 1f)
+        val nx2 = (plate.x2 / uprightW).coerceIn(0f, 1f)
+        val ny2 = (plate.y2 / uprightH).coerceIn(0f, 1f)
 
         synchronized(dbLock) {
             try {
@@ -135,6 +165,10 @@ class PlateEventStore private constructor(context: Context) :
                         values.put("plate_code", plate.code)
                         values.put("plate_type", plate.type)
                         values.put("confidence", plate.confidence.toDouble())
+                        values.put("box_x1", nx1.toDouble())
+                        values.put("box_y1", ny1.toDouble())
+                        values.put("box_x2", nx2.toDouble())
+                        values.put("box_y2", ny2.toDouble())
                         if (plateImg != null) {
                             deleteSnapFile(recent.plateImgName)
                             values.put("plate_img", plateImg)
@@ -159,6 +193,10 @@ class PlateEventStore private constructor(context: Context) :
                         put("video_offset_ms", offsetMs)
                         if (plateImg != null) put("plate_img", plateImg)
                         if (snapImg != null) put("snap_img", snapImg)
+                        put("box_x1", nx1.toDouble())
+                        put("box_y1", ny1.toDouble())
+                        put("box_x2", nx2.toDouble())
+                        put("box_y2", ny2.toDouble())
                     }
                     db.insert(TABLE_EVENTS, null, values)
                     pruneExcessEventsLocked(db)
@@ -279,18 +317,28 @@ class PlateEventStore private constructor(context: Context) :
         return diff <= 1
     }
 
-    private fun readCursorRow(c: android.database.Cursor): PlateEvent = PlateEvent(
-        id = c.getLong(c.getColumnIndexOrThrow("id")),
-        plateCode = c.getString(c.getColumnIndexOrThrow("plate_code")),
-        plateType = c.getInt(c.getColumnIndexOrThrow("plate_type")),
-        confidence = c.getFloat(c.getColumnIndexOrThrow("confidence")),
-        eventTimeMs = c.getLong(c.getColumnIndexOrThrow("event_time_ms")),
-        lastSeenMs = c.getLong(c.getColumnIndexOrThrow("last_seen_ms")),
-        videoFile = c.getString(c.getColumnIndexOrThrow("video_file")),
-        videoOffsetMs = c.getLong(c.getColumnIndexOrThrow("video_offset_ms")),
-        plateImgName = c.getString(c.getColumnIndexOrThrow("plate_img")),
-        snapImgName = c.getString(c.getColumnIndexOrThrow("snap_img"))
-    )
+    private fun readCursorRow(c: android.database.Cursor): PlateEvent {
+        fun optFloat(col: String): Float {
+            val idx = c.getColumnIndex(col)
+            return if (idx >= 0 && !c.isNull(idx)) c.getFloat(idx) else 0f
+        }
+        return PlateEvent(
+            id = c.getLong(c.getColumnIndexOrThrow("id")),
+            plateCode = c.getString(c.getColumnIndexOrThrow("plate_code")),
+            plateType = c.getInt(c.getColumnIndexOrThrow("plate_type")),
+            confidence = c.getFloat(c.getColumnIndexOrThrow("confidence")),
+            eventTimeMs = c.getLong(c.getColumnIndexOrThrow("event_time_ms")),
+            lastSeenMs = c.getLong(c.getColumnIndexOrThrow("last_seen_ms")),
+            videoFile = c.getString(c.getColumnIndexOrThrow("video_file")),
+            videoOffsetMs = c.getLong(c.getColumnIndexOrThrow("video_offset_ms")),
+            plateImgName = c.getString(c.getColumnIndexOrThrow("plate_img")),
+            snapImgName = c.getString(c.getColumnIndexOrThrow("snap_img")),
+            boxX1 = optFloat("box_x1"),
+            boxY1 = optFloat("box_y1"),
+            boxX2 = optFloat("box_x2"),
+            boxY2 = optFloat("box_y2")
+        )
+    }
 
     private fun saveEventImages(
         plate: DetectedPlate,

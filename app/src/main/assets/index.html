@@ -295,6 +295,7 @@
     }
 
     .playback-video-wrap {
+      position: relative;
       flex: 1;
       min-height: 260px;
       display: flex;
@@ -307,11 +308,46 @@
     }
 
     .playback-video-wrap video {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
-      max-height: 70vh;
       object-fit: contain;
       background: #000;
+    }
+
+    .timeline-panel {
+      position: relative;
+      background: #111827;
+      border: 1px solid #283244;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .timeline-canvas {
+      width: 100%;
+      height: 68px;
+      display: block;
+      cursor: pointer;
+      border-radius: 4px;
+      background: #090d16;
+    }
+
+    .timeline-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(15, 23, 42, 0.94);
+      border: 1px solid #38bdf8;
+      color: #f8fafc;
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      z-index: 20;
+      display: none;
     }
 
     .playback-bar {
@@ -378,8 +414,8 @@
     }
 
     .event-thumb {
-      width: 112px;
-      height: 44px;
+      width: 124px;
+      height: 48px;
       object-fit: cover;
       border-radius: 4px;
       background: #000;
@@ -388,7 +424,7 @@
     }
 
     .event-plate {
-      font-size: 16px;
+      font-size: 19px;
       font-weight: 700;
       letter-spacing: 1px;
       color: #f8fafc;
@@ -653,28 +689,66 @@
 
   <div id="playbackView" class="playback-view" style="display:none;">
     <div class="playback-player-area">
-      <div class="playback-video-wrap">
-        <video id="playbackVideo" controls playsinline preload="metadata"></video>
+      <div class="playback-video-wrap" id="playbackVideoWrap">
+        <video id="playbackVideoA" playsinline preload="auto"></video>
+        <video id="playbackVideoB" playsinline preload="auto" style="opacity:0;pointer-events:none;"></video>
+        <canvas id="playbackOverlayCanvas" style="position:absolute;inset:0;pointer-events:none;z-index:5;"></canvas>
       </div>
-      <div class="playback-bar">
-        <div id="playbackNowInfo">请从右侧选择过车记录或下方录像分段进行回放</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <select id="playbackSegmentSelect" class="camera-select" style="width:auto;min-width:200px;margin:0;padding:5px 8px;">
-            <option value="">-- 选择录像分段 --</option>
-          </select>
-          <a id="playbackDownloadLink" href="#" target="_blank" class="btn" style="display:none;padding:5px 10px;">下载 MP4</a>
+
+      <div class="timeline-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <button id="pbPlayPauseBtn" type="button" class="btn btn-action" style="width:auto;margin:0;padding:4px 12px;">▶ 播放</button>
+            <button id="pbBack10Btn" type="button" class="btn" style="margin:0;padding:4px 9px;">-10s</button>
+            <button id="pbFwd10Btn" type="button" class="btn" style="margin:0;padding:4px 9px;">+10s</button>
+            <select id="pbSpeedSelect" class="camera-select" style="width:auto;margin:0;padding:4px 8px;">
+              <option value="1">1.0x</option>
+              <option value="2">2.0x</option>
+              <option value="4">4.0x</option>
+            </select>
+            <span id="playbackClockText" style="font-family:monospace;font-size:14px;font-weight:700;color:#38bdf8;margin-left:4px;">--:--:--</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span style="font-size:11px;color:#94a3b8;">时间轨缩放:</span>
+            <button id="tlZoomAll" type="button" class="btn active" style="margin:0;padding:3px 8px;font-size:11px;">全部</button>
+            <button id="tlZoom1h" type="button" class="btn" style="margin:0;padding:3px 8px;font-size:11px;">1小时</button>
+            <button id="tlZoom15m" type="button" class="btn" style="margin:0;padding:3px 8px;font-size:11px;">15分钟</button>
+            <a id="playbackDownloadLink" href="#" target="_blank" class="btn" style="display:none;margin:0;padding:3px 9px;font-size:11px;">下载当前段</a>
+          </div>
         </div>
+        <canvas id="playbackTimelineCanvas" class="timeline-canvas"></canvas>
+        <div id="timelineTooltip" class="timeline-tooltip"></div>
+        <div id="playbackNowInfo" style="font-size:12px;color:#94a3b8;">拖动或点击时间轨任意位置，或点击右侧过车记录开始回放</div>
       </div>
+
       <div id="playbackFullSnapWrap" style="display:none;background:#161b26;border:1px solid #283244;border-radius:8px;padding:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:#94a3b8;">
           <span id="playbackSnapTitle">全景抓拍</span>
           <button id="playbackSnapClose" type="button" class="btn" style="padding:2px 8px;font-size:11px;">收起</button>
         </div>
-        <img id="playbackFullSnap" alt="全景抓拍" style="max-width:100%;max-height:240px;border-radius:6px;display:block;margin:0 auto;">
+        <img id="playbackFullSnap" alt="全景抓拍" style="max-width:100%;max-height:220px;border-radius:6px;display:block;margin:0 auto;">
       </div>
     </div>
 
     <div class="playback-sidebar">
+      <!-- 沿用实时监控样式的回放车牌识别看板 -->
+      <div style="padding:10px 12px 0 12px;">
+        <div id="pb-alpr-card" class="setting-group" style="margin-bottom:8px;border-left:4px solid #38bdf8;background:#1e293b;transition:background-color 0.25s ease,border-color 0.25s ease;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <h3 id="pb-alpr-title" style="color:#38bdf8;margin:0;font-size:13px;">回放画面车牌</h3>
+              <span id="pb-alpr-type" style="display:none;font-size:11px;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,0.16);color:#e2e8f0;"></span>
+            </div>
+            <span id="pb-alpr-conf" style="font-size:11px;color:#94a3b8;"></span>
+          </div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;">
+            <span id="pb-alpr-plate" style="font-size:24px;font-weight:bold;letter-spacing:2px;color:#fff;">等待过车...</span>
+            <span id="pb-alpr-meta" style="font-size:12px;color:#cbd5e1;"></span>
+          </div>
+        </div>
+        <div id="pb-alpr-extra-cards"></div>
+      </div>
+
       <div class="playback-search">
         <div style="display:flex;gap:6px;">
           <input id="eventSearchInput" type="text" placeholder="搜索车牌号（如 粤B / 京A）" style="flex:1;margin:0;padding:7px 10px;">
@@ -683,9 +757,12 @@
         <div style="display:flex;gap:6px;align-items:center;">
           <select id="eventTypeSelect" class="camera-select" style="flex:1;margin:0;padding:6px 8px;">
             <option value="">全部车牌类型</option>
-            <option value="蓝牌">蓝牌</option>
-            <option value="绿牌">绿牌</option>
-            <option value="黄牌">黄牌</option>
+            <option value="0">蓝牌</option>
+            <option value="3">绿牌新能源</option>
+            <option value="1">黄牌单层</option>
+            <option value="9">黄牌双层</option>
+            <option value="2">白牌单层</option>
+            <option value="4">黑牌/港澳</option>
           </select>
           <button id="eventRefreshBtn" type="button" class="btn" style="margin:0;padding:6px 10px;">刷新</button>
         </div>
@@ -1175,6 +1252,20 @@
       drawing = false;   // let the rAF draw loop exit (esp. when switching to H.264)
     }
 
+    let isPlaybackViewActive = false;
+    function pauseLivePreview() {
+      isPlaybackViewActive = true;
+      stopMjpegStream();
+      stopH264Stream();
+    }
+
+    function resumeLivePreview() {
+      isPlaybackViewActive = false;
+      if (document.hidden) return;
+      if (streamMode === 'h264') startH264Stream(); else startMjpegStream();
+      if (typeof checkRecordingStatus === 'function') checkRecordingStatus();
+    }
+
     function showStreamLoading() {
       const el = getElById('streamLoading');
       if (el) el.style.display = 'flex';
@@ -1436,8 +1527,8 @@
         // Only stop video stream when backgrounded, keep audio playing if it was started
         stopMjpegStream();
         stopH264Stream();
-      } else {
-        // Restart the currently selected stream on foreground
+      } else if (!isPlaybackViewActive) {
+        // Restart the currently selected stream on foreground (only when in Live view)
         if (streamMode === 'h264') startH264Stream(); else startMjpegStream();
       }
     });
@@ -2265,6 +2356,7 @@
 
     let lastPlateTs = 0;
     setInterval(() => {
+      if (isPlaybackViewActive) return;
       fetch('/api/plate', { credentials: 'include', cache: 'no-store' })
         .then(r => r.json())
         .then(data => {
@@ -2436,16 +2528,28 @@
       }, 15000);
     })();
     
-    // ---- 过车回放与检索视图 ----
+    // ---- 过车回放与检索视图（统一时间轨 + 双视频无缝衔接 + 看板与车牌框） ----
     (function initPlaybackView() {
       const liveTabBtn = getElById('liveTabBtn');
       const playbackTabBtn = getElById('playbackTabBtn');
       const liveMainView = getElById('liveMainView');
       const liveHeaderTools = getElById('liveHeaderTools');
       const playbackView = getElById('playbackView');
-      const videoEl = getElById('playbackVideo');
+      const videoWrap = getElById('playbackVideoWrap');
+      const videoA = getElById('playbackVideoA');
+      const videoB = getElById('playbackVideoB');
+      const pbOverlay = getElById('playbackOverlayCanvas');
+      const playPauseBtn = getElById('pbPlayPauseBtn');
+      const back10Btn = getElById('pbBack10Btn');
+      const fwd10Btn = getElById('pbFwd10Btn');
+      const speedSelect = getElById('pbSpeedSelect');
+      const clockTextEl = getElById('playbackClockText');
+      const tlZoomAll = getElById('tlZoomAll');
+      const tlZoom1h = getElById('tlZoom1h');
+      const tlZoom15m = getElById('tlZoom15m');
+      const tlCanvas = getElById('playbackTimelineCanvas');
+      const tlTooltip = getElById('timelineTooltip');
       const nowInfoEl = getElById('playbackNowInfo');
-      const segmentSelect = getElById('playbackSegmentSelect');
       const downloadLink = getElById('playbackDownloadLink');
       const fullSnapWrap = getElById('playbackFullSnapWrap');
       const fullSnapImg = getElById('playbackFullSnap');
@@ -2460,12 +2564,23 @@
       const nextBtn = getElById('eventNextBtn');
       const pageInfoEl = getElById('eventPageInfo');
 
-      if (!liveTabBtn || !playbackTabBtn || !playbackView || !videoEl) return;
+      if (!liveTabBtn || !playbackTabBtn || !playbackView || !videoA || !videoB) return;
 
       const PAGE_SIZE = 50;
       let currentOffset = 0;
-      let currentLoadedFile = '';
       let activeEventId = null;
+      let segments = [];        // [{ name, startMs, endMs, durationSec }]
+      let timelineEvents = [];  // 全量近期事件，用于时间轨打点与回放框叠加
+      let currentSegIdx = -1;
+      let activeSlot = 0;       // 0 -> videoA, 1 -> videoB
+      let preloadedSegIdx = -1;
+      let playbackRate = 1;
+      let tlZoomMs = 0;         // 0 = 全部时间范围
+      let currentWallMs = 0;
+      let isDraggingTl = false;
+
+      function getActiveVideo() { return activeSlot === 0 ? videoA : videoB; }
+      function getStandbyVideo() { return activeSlot === 0 ? videoB : videoA; }
 
       function formatTime(ms) {
         if (!ms) return '--';
@@ -2474,11 +2589,29 @@
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
       }
 
+      function formatHms(ms) {
+        if (!ms) return '--:--:--';
+        const d = new Date(ms);
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      }
+
       function formatOffset(ms) {
         const totalSec = Math.max(0, Math.floor((ms || 0) / 1000));
         const m = Math.floor(totalSec / 60);
         const s = totalSec % 60;
         return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+
+      function parseStartMsFromName(name, fallbackLastModMs) {
+        const m = /(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/.exec(name || '');
+        if (m) {
+          return new Date(
+            Number(m[1]), Number(m[2]) - 1, Number(m[3]),
+            Number(m[4]), Number(m[5]), Number(m[6])
+          ).getTime();
+        }
+        return Math.max(0, (fallbackLastModMs || Date.now()) - 300_000);
       }
 
       function switchTab(mode) {
@@ -2489,10 +2622,14 @@
         if (liveHeaderTools) liveHeaderTools.style.display = isPlayback ? 'none' : 'flex';
         playbackView.style.display = isPlayback ? 'flex' : 'none';
         if (isPlayback) {
-          loadSegments();
+          pauseLivePreview();
+          loadSegmentsAndTimeline();
           loadEvents();
         } else {
-          try { videoEl.pause(); } catch (_) {}
+          try { videoA.pause(); } catch (_) {}
+          try { videoB.pause(); } catch (_) {}
+          updatePlayPauseBtn();
+          resumeLivePreview();
         }
       }
 
@@ -2503,65 +2640,477 @@
         snapCloseBtn.addEventListener('click', () => { fullSnapWrap.style.display = 'none'; });
       }
 
-      function loadSegments() {
-        fetch('/files.json', { credentials: 'include', cache: 'no-store' })
-          .then(r => r.json())
-          .then(data => {
-            if (!segmentSelect) return;
-            const prevVal = segmentSelect.value;
-            segmentSelect.innerHTML = '<option value="">-- 选择录像分段 --</option>';
-            const files = Array.isArray(data.files) ? data.files : [];
-            files.forEach(f => {
-              const opt = document.createElement('option');
-              opt.value = f.name;
-              const mb = ((f.sizeBytes || 0) / (1024 * 1024)).toFixed(1);
-              opt.textContent = `${f.name} (${mb} MB)`;
-              segmentSelect.appendChild(opt);
-            });
-            if (prevVal) segmentSelect.value = prevVal;
-          })
-          .catch(() => {});
+      function updatePlayPauseBtn() {
+        if (!playPauseBtn) return;
+        const v = getActiveVideo();
+        playPauseBtn.textContent = v.paused ? '▶ 播放' : '⏸ 暂停';
       }
 
-      function playVideoFileAt(fileName, seekSec, labelText) {
-        if (!fileName) return;
-        const streamUrl = `/files/stream/${encodeURIComponent(fileName)}`;
-        const dlUrl = `/files/${encodeURIComponent(fileName)}`;
-        if (segmentSelect) segmentSelect.value = fileName;
+      if (playPauseBtn) {
+        playPauseBtn.addEventListener('click', () => {
+          const v = getActiveVideo();
+          if (!v.src) {
+            if (segments.length > 0) playSegmentAt(0, 0);
+            return;
+          }
+          if (v.paused) v.play().catch(() => {});
+          else v.pause();
+          updatePlayPauseBtn();
+        });
+      }
+
+      if (back10Btn) {
+        back10Btn.addEventListener('click', () => {
+          if (currentWallMs > 0) seekToWallTime(currentWallMs - 10_000);
+        });
+      }
+      if (fwd10Btn) {
+        fwd10Btn.addEventListener('click', () => {
+          if (currentWallMs > 0) seekToWallTime(currentWallMs + 10_000);
+        });
+      }
+      if (speedSelect) {
+        speedSelect.addEventListener('change', () => {
+          playbackRate = Number(speedSelect.value) || 1;
+          videoA.playbackRate = playbackRate;
+          videoB.playbackRate = playbackRate;
+        });
+      }
+
+      function setZoom(ms, activeBtn) {
+        tlZoomMs = ms;
+        [tlZoomAll, tlZoom1h, tlZoom15m].forEach(b => b && b.classList.remove('active'));
+        if (activeBtn) activeBtn.classList.add('active');
+        drawTimeline();
+      }
+      if (tlZoomAll) tlZoomAll.addEventListener('click', () => setZoom(0, tlZoomAll));
+      if (tlZoom1h) tlZoom1h.addEventListener('click', () => setZoom(3600_000, tlZoom1h));
+      if (tlZoom15m) tlZoom15m.addEventListener('click', () => setZoom(900_000, tlZoom15m));
+
+      function loadSegmentsAndTimeline() {
+        Promise.all([
+          fetch('/files.json', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => ({ files: [] })),
+          fetch('/api/events?limit=200&offset=0', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => ({ events: [] }))
+        ]).then(([filesData, eventsData]) => {
+          const rawFiles = Array.isArray(filesData.files) ? filesData.files : [];
+          segments = rawFiles
+            .filter(f => f.name && f.name.toLowerCase().endsWith('.mp4'))
+            .map(f => {
+              const startMs = parseStartMsFromName(f.name, f.lastModifiedMs);
+              const endMs = Math.max(startMs + 5000, f.lastModifiedMs || (startMs + 300_000));
+              return { name: f.name, startMs, endMs, durationSec: (endMs - startMs) / 1000 };
+            })
+            .sort((a, b) => a.startMs - b.startMs);
+
+          timelineEvents = Array.isArray(eventsData.events) ? eventsData.events : [];
+          if (currentSegIdx < 0 && segments.length > 0) {
+            currentWallMs = segments[segments.length - 1].startMs;
+          }
+          drawTimeline();
+        });
+      }
+
+      function playSegmentAt(segIdx, offsetSec, infoLabel) {
+        if (segIdx < 0 || segIdx >= segments.length) return;
+        const seg = segments[segIdx];
+        const streamUrl = `/files/stream/${encodeURIComponent(seg.name)}`;
+        const dlUrl = `/files/${encodeURIComponent(seg.name)}`;
         if (downloadLink) {
           downloadLink.href = dlUrl;
           downloadLink.style.display = 'inline-block';
         }
-        if (nowInfoEl) nowInfoEl.textContent = labelText || `正在播放: ${fileName}`;
+        if (nowInfoEl) {
+          nowInfoEl.textContent = infoLabel || `正在播放: ${seg.name}`;
+        }
 
-        const targetTime = Math.max(0, Number(seekSec) || 0);
-        if (currentLoadedFile === fileName && videoEl.readyState >= 1) {
-          videoEl.currentTime = targetTime;
-          videoEl.play().catch(() => {});
+        const targetTime = Math.max(0, Number(offsetSec) || 0);
+        const curV = getActiveVideo();
+        const stbV = getStandbyVideo();
+        stbV.pause();
+
+        // 如果已经在当前活跃播放器加载了这一段，直接 seek
+        if (currentSegIdx === segIdx && curV.src && curV.readyState >= 1) {
+          curV.currentTime = isFinite(curV.duration) ? Math.min(targetTime, Math.max(0, curV.duration - 0.2)) : targetTime;
+          curV.playbackRate = playbackRate;
+          curV.play().catch(() => {});
+          updatePlayPauseBtn();
           return;
         }
 
-        currentLoadedFile = fileName;
+        // 如果备用播放器已经预加载了这段且从头播，直接无缝切换
+        if (preloadedSegIdx === segIdx && targetTime < 1 && stbV.readyState >= 2) {
+          swapToStandby(segIdx, targetTime);
+          return;
+        }
+
+        currentSegIdx = segIdx;
+        preloadedSegIdx = -1;
         const onMeta = () => {
-          videoEl.removeEventListener('loadedmetadata', onMeta);
-          if (targetTime > 0 && isFinite(videoEl.duration)) {
-            videoEl.currentTime = Math.min(targetTime, Math.max(0, videoEl.duration - 0.5));
-          } else if (targetTime > 0) {
-            videoEl.currentTime = targetTime;
+          curV.removeEventListener('loadedmetadata', onMeta);
+          if (isFinite(curV.duration) && curV.duration > 0) {
+            seg.durationSec = curV.duration;
+            seg.endMs = seg.startMs + curV.duration * 1000;
           }
-          videoEl.play().catch(() => {});
+          if (targetTime > 0) {
+            curV.currentTime = isFinite(curV.duration) ? Math.min(targetTime, Math.max(0, curV.duration - 0.2)) : targetTime;
+          }
+          curV.playbackRate = playbackRate;
+          curV.play().catch(() => {});
+          updatePlayPauseBtn();
+          drawTimeline();
         };
-        videoEl.addEventListener('loadedmetadata', onMeta);
-        videoEl.src = streamUrl;
-        videoEl.load();
+        curV.addEventListener('loadedmetadata', onMeta);
+        curV.src = streamUrl;
+        curV.load();
       }
 
-      if (segmentSelect) {
-        segmentSelect.addEventListener('change', () => {
-          const name = segmentSelect.value;
-          if (name) playVideoFileAt(name, 0, `正在播放分段: ${name}`);
+      function preloadNextSegment(nextIdx) {
+        if (nextIdx < 0 || nextIdx >= segments.length || preloadedSegIdx === nextIdx) return;
+        preloadedSegIdx = nextIdx;
+        const stbV = getStandbyVideo();
+        const nextSeg = segments[nextIdx];
+        stbV.src = `/files/stream/${encodeURIComponent(nextSeg.name)}`;
+        stbV.playbackRate = playbackRate;
+        stbV.load();
+      }
+
+      function swapToStandby(nextIdx, startOffsetSec) {
+        const oldV = getActiveVideo();
+        const newV = getStandbyVideo();
+        oldV.pause();
+        oldV.style.opacity = '0';
+        oldV.style.pointerEvents = 'none';
+
+        activeSlot = activeSlot === 0 ? 1 : 0;
+        currentSegIdx = nextIdx;
+        preloadedSegIdx = -1;
+
+        newV.style.opacity = '1';
+        newV.style.pointerEvents = 'auto';
+        newV.playbackRate = playbackRate;
+        if (startOffsetSec > 0) newV.currentTime = startOffsetSec;
+        newV.play().catch(() => {});
+
+        const seg = segments[nextIdx];
+        if (downloadLink && seg) {
+          downloadLink.href = `/files/${encodeURIComponent(seg.name)}`;
+          downloadLink.style.display = 'inline-block';
+        }
+        if (nowInfoEl && seg) {
+          nowInfoEl.textContent = `无缝续播: ${seg.name}`;
+        }
+        updatePlayPauseBtn();
+      }
+
+      function seekToWallTime(targetMs) {
+        if (!segments.length) return;
+        let idx = segments.findIndex(s => targetMs >= s.startMs && targetMs <= s.endMs);
+        let offsetSec = 0;
+        if (idx >= 0) {
+          offsetSec = Math.max(0, (targetMs - segments[idx].startMs) / 1000);
+        } else {
+          // 落入空白区时，跳到最近的下一段开头或最后一段
+          idx = segments.findIndex(s => s.startMs > targetMs);
+          if (idx < 0) idx = segments.length - 1;
+          offsetSec = 0;
+          targetMs = segments[idx].startMs;
+        }
+        currentWallMs = targetMs;
+        playSegmentAt(idx, offsetSec, `时间轨定位: ${formatTime(targetMs)}`);
+      }
+
+      function getTimelineBounds() {
+        if (!segments.length) {
+          const now = Date.now();
+          return { minMs: now - 3600_000, maxMs: now };
+        }
+        const fullMin = segments[0].startMs;
+        const fullMax = Math.max(fullMin + 60_000, segments[segments.length - 1].endMs);
+        if (!tlZoomMs || fullMax - fullMin <= tlZoomMs) {
+          return { minMs: fullMin, maxMs: fullMax };
+        }
+        const center = currentWallMs || fullMax;
+        let minMs = center - tlZoomMs / 2;
+        let maxMs = center + tlZoomMs / 2;
+        if (minMs < fullMin) { minMs = fullMin; maxMs = fullMin + tlZoomMs; }
+        if (maxMs > fullMax) { maxMs = fullMax; minMs = fullMax - tlZoomMs; }
+        return { minMs, maxMs };
+      }
+
+      function drawTimeline() {
+        if (!tlCanvas) return;
+        const rect = tlCanvas.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        if (tlCanvas.width !== Math.round(rect.width) || tlCanvas.height !== Math.round(rect.height)) {
+          tlCanvas.width = Math.round(rect.width);
+          tlCanvas.height = Math.round(rect.height);
+        }
+        const ctx = tlCanvas.getContext('2d');
+        const W = tlCanvas.width;
+        const H = tlCanvas.height;
+        ctx.clearRect(0, 0, W, H);
+
+        const { minMs, maxMs } = getTimelineBounds();
+        const span = Math.max(1000, maxMs - minMs);
+        const toX = (ms) => ((ms - minMs) / span) * W;
+
+        // 1. 录像覆盖色块
+        ctx.fillStyle = '#1e3a8a';
+        for (const s of segments) {
+          if (s.endMs < minMs || s.startMs > maxMs) continue;
+          const x1 = Math.max(0, toX(s.startMs));
+          const x2 = Math.min(W, toX(s.endMs));
+          ctx.fillRect(x1, 22, Math.max(2, x2 - x1), 24);
+        }
+
+        // 2. 时间刻度线
+        const tickCount = Math.max(4, Math.floor(W / 110));
+        ctx.fillStyle = '#94a3b8';
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1;
+        ctx.font = '10px monospace';
+        ctx.textBaseline = 'top';
+        for (let i = 0; i <= tickCount; i++) {
+          const t = minMs + (span * i) / tickCount;
+          const x = Math.round((W * i) / tickCount);
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, 18);
+          ctx.stroke();
+          const label = formatHms(t);
+          const lx = Math.min(W - 52, Math.max(2, x + 3));
+          ctx.fillText(label, lx, 3);
+        }
+
+        // 3. 过车事件打点
+        for (const ev of timelineEvents) {
+          if (ev.eventTimeMs < minMs || ev.eventTimeMs > maxMs) continue;
+          const x = toX(ev.eventTimeMs);
+          const st = PLATE_TYPE_STYLES[ev.plateType] || DEFAULT_PLATE_STYLE;
+          ctx.fillStyle = st.border || '#38bdf8';
+          ctx.fillRect(x - 1.5, 20, 3, 28);
+          ctx.beginPath();
+          ctx.arc(x, 56, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 4. 播放指针 (Playhead)
+        if (currentWallMs >= minMs && currentWallMs <= maxMs) {
+          const px = toX(currentWallMs);
+          ctx.strokeStyle = '#f43f5e';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(px, 0);
+          ctx.lineTo(px, H);
+          ctx.stroke();
+        }
+      }
+
+      if (tlCanvas) {
+        const clientXToWallMs = (clientX) => {
+          const rect = tlCanvas.getBoundingClientRect();
+          const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / Math.max(1, rect.width)));
+          const { minMs, maxMs } = getTimelineBounds();
+          return minMs + ratio * (maxMs - minMs);
+        };
+        tlCanvas.addEventListener('mousedown', (e) => {
+          isDraggingTl = true;
+          seekToWallTime(clientXToWallMs(e.clientX));
+        });
+        window.addEventListener('mousemove', (e) => {
+          if (isDraggingTl) {
+            seekToWallTime(clientXToWallMs(e.clientX));
+          }
+        });
+        window.addEventListener('mouseup', () => { isDraggingTl = false; });
+        tlCanvas.addEventListener('mousemove', (e) => {
+          if (!tlTooltip) return;
+          const tMs = clientXToWallMs(e.clientX);
+          const nearEv = timelineEvents.find(ev => Math.abs(ev.eventTimeMs - tMs) < Math.max(3000, getTimelineBounds().maxMs - getTimelineBounds().minMs) * 0.015);
+          tlTooltip.textContent = nearEv ? `${formatHms(tMs)} · ${nearEv.plateCode}` : formatHms(tMs);
+          const rect = tlCanvas.getBoundingClientRect();
+          tlTooltip.style.left = `${Math.min(rect.width - 110, Math.max(8, e.clientX - rect.left + 10))}px`;
+          tlTooltip.style.top = '18px';
+          tlTooltip.style.display = 'block';
+        });
+        tlCanvas.addEventListener('mouseleave', () => {
+          if (tlTooltip) tlTooltip.style.display = 'none';
         });
       }
+
+      function renderPlaybackCardAndOverlay(wallMs) {
+        const curSeg = currentSegIdx >= 0 ? segments[currentSegIdx] : null;
+        const curV = getActiveVideo();
+        const curOffsetMs = (curV.currentTime || 0) * 1000;
+
+        // 匹配当前画面时间窗内的过车事件
+        const activeEvents = timelineEvents.filter(ev => {
+          if (curSeg && ev.videoFile === curSeg.name) {
+            return Math.abs(curOffsetMs - (ev.videoOffsetMs || 0)) <= 2800;
+          }
+          const start = (ev.eventTimeMs || 0) - 1500;
+          const end = (ev.lastSeenMs || ev.eventTimeMs || 0) + 2500;
+          return wallMs >= start && wallMs <= end;
+        });
+
+        // 1. 更新右侧回放车牌看板（沿用监控界面的大看板样式）
+        const cardEl = getElById('pb-alpr-card');
+        const titleEl = getElById('pb-alpr-title');
+        const typeEl = getElById('pb-alpr-type');
+        const confEl = getElById('pb-alpr-conf');
+        const plateEl = getElById('pb-alpr-plate');
+        const metaEl = getElById('pb-alpr-meta');
+        const extraEl = getElById('pb-alpr-extra-cards');
+
+        if (activeEvents.length > 0) {
+          const first = activeEvents[0];
+          const st = PLATE_TYPE_STYLES[first.plateType] || DEFAULT_PLATE_STYLE;
+          if (cardEl) { cardEl.style.background = st.bg; cardEl.style.borderLeftColor = st.border; }
+          if (titleEl) titleEl.style.color = st.title;
+          if (typeEl) {
+            typeEl.style.display = 'inline-block';
+            typeEl.innerText = st.label;
+            typeEl.style.background = st.badgeBg;
+            typeEl.style.color = st.badgeText;
+          }
+          if (confEl) {
+            confEl.style.color = st.meta;
+            confEl.innerText = `${Math.round((first.confidence || 0) * 100)}%`;
+          }
+          if (plateEl) {
+            plateEl.innerText = first.plateCode || '--';
+            plateEl.style.color = st.text;
+          }
+          if (metaEl) {
+            metaEl.style.color = st.meta;
+            metaEl.innerText = formatHms(first.eventTimeMs);
+          }
+
+          if (extraEl) {
+            extraEl.innerHTML = '';
+            for (let i = 1; i < activeEvents.length; i++) {
+              const ev = activeEvents[i];
+              const est = PLATE_TYPE_STYLES[ev.plateType] || DEFAULT_PLATE_STYLE;
+              const c = document.createElement('div');
+              c.className = 'setting-group';
+              c.style.marginBottom = '8px';
+              c.style.borderLeft = `4px solid ${est.border}`;
+              c.style.background = est.bg;
+              c.innerHTML = `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                  <h3 style="color:${est.title};margin:0;font-size:13px;">回放画面车牌 #${i + 1}</h3>
+                  <span style="font-size:11px;padding:1px 6px;border-radius:4px;background:${est.badgeBg};color:${est.badgeText};">${est.label}</span>
+                </div>
+                <div style="display:flex;align-items:baseline;justify-content:space-between;">
+                  <span style="font-size:22px;font-weight:bold;letter-spacing:2px;color:${est.text};"></span>
+                  <span style="font-size:12px;color:${est.meta};">${Math.round((ev.confidence || 0) * 100)}% · ${formatHms(ev.eventTimeMs)}</span>
+                </div>
+              `;
+              c.querySelector('span[style*="font-size:22px"]').innerText = ev.plateCode || '--';
+              extraEl.appendChild(c);
+            }
+          }
+        } else {
+          if (cardEl) { cardEl.style.background = '#1e293b'; cardEl.style.borderLeftColor = '#38bdf8'; }
+          if (titleEl) titleEl.style.color = '#38bdf8';
+          if (typeEl) typeEl.style.display = 'none';
+          if (confEl) confEl.innerText = '';
+          if (plateEl) { plateEl.innerText = '等待过车...'; plateEl.style.color = '#94a3b8'; }
+          if (metaEl) metaEl.innerText = '';
+          if (extraEl) extraEl.innerHTML = '';
+        }
+
+        // 2. 在回放视频上绘制实时风格的车牌框与车牌文字
+        if (!pbOverlay || !videoWrap) return;
+        const wRect = videoWrap.getBoundingClientRect();
+        if (wRect.width <= 0 || wRect.height <= 0) return;
+        if (pbOverlay.width !== Math.round(wRect.width) || pbOverlay.height !== Math.round(wRect.height)) {
+          pbOverlay.width = Math.round(wRect.width);
+          pbOverlay.height = Math.round(wRect.height);
+        }
+        const ctx = pbOverlay.getContext('2d');
+        ctx.clearRect(0, 0, pbOverlay.width, pbOverlay.height);
+
+        const vw = curV.videoWidth || 0;
+        const vh = curV.videoHeight || 0;
+        if (!vw || !vh || !activeEvents.length) return;
+
+        // 计算 object-fit: contain 后的实际视频绘制区域
+        const scale = Math.min(pbOverlay.width / vw, pbOverlay.height / vh);
+        const drawW = vw * scale;
+        const drawH = vh * scale;
+        const drawX = (pbOverlay.width - drawW) / 2;
+        const drawY = (pbOverlay.height - drawH) / 2;
+
+        for (const ev of activeEvents) {
+          const b = ev.box;
+          if (!b || (b.x2 <= b.x1 && b.y2 <= b.y1)) continue;
+          const rx1 = drawX + b.x1 * drawW;
+          const ry1 = drawY + b.y1 * drawH;
+          const rw = (b.x2 - b.x1) * drawW;
+          const rh = (b.y2 - b.y1) * drawH;
+          if (rw <= 2 || rh <= 2) continue;
+
+          const st = PLATE_TYPE_STYLES[ev.plateType] || DEFAULT_PLATE_STYLE;
+          ctx.strokeStyle = st.border;
+          ctx.lineWidth = 2.5;
+          ctx.strokeRect(rx1, ry1, rw, rh);
+
+          const label = ev.plateCode || '';
+          if (label) {
+            ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, sans-serif';
+            const padX = 6;
+            const labelH = 20;
+            const labelW = ctx.measureText(label).width + padX * 2;
+            const labelX = Math.max(2, Math.min(pbOverlay.width - labelW - 2, rx1));
+            const labelY = ry1 - labelH - 3 >= 2 ? ry1 - labelH - 3 : ry1 + 2;
+
+            ctx.fillStyle = st.bg;
+            ctx.fillRect(labelX, labelY, labelW, labelH);
+            ctx.strokeStyle = st.border;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(labelX, labelY, labelW, labelH);
+            ctx.fillStyle = st.text;
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, labelX + padX, labelY + labelH / 2);
+          }
+        }
+      }
+
+      function bindVideoEvents(v, slotId) {
+        v.addEventListener('timeupdate', () => {
+          if (activeSlot !== slotId || currentSegIdx < 0 || !segments[currentSegIdx]) return;
+          const seg = segments[currentSegIdx];
+          currentWallMs = seg.startMs + (v.currentTime || 0) * 1000;
+          if (clockTextEl) clockTextEl.textContent = formatTime(currentWallMs);
+          drawTimeline();
+          renderPlaybackCardAndOverlay(currentWallMs);
+
+          // 距离当前段结束不足 2.5 秒时预加载下一段
+          if (isFinite(v.duration) && v.duration > 3 && v.currentTime >= v.duration - 2.5) {
+            if (currentSegIdx + 1 < segments.length) {
+              preloadNextSegment(currentSegIdx + 1);
+            }
+          }
+        });
+        v.addEventListener('ended', () => {
+          if (activeSlot !== slotId) return;
+          const nextIdx = currentSegIdx + 1;
+          if (nextIdx < segments.length) {
+            if (preloadedSegIdx === nextIdx && getStandbyVideo().readyState >= 2) {
+              swapToStandby(nextIdx, 0);
+            } else {
+              playSegmentAt(nextIdx, 0, `无缝续播: ${segments[nextIdx].name}`);
+            }
+          } else {
+            updatePlayPauseBtn();
+          }
+        });
+        v.addEventListener('play', updatePlayPauseBtn);
+        v.addEventListener('pause', updatePlayPauseBtn);
+      }
+      bindVideoEvents(videoA, 0);
+      bindVideoEvents(videoB, 1);
 
       function renderEvents(events) {
         if (!eventListEl) return;
@@ -2576,7 +3125,7 @@
 
           const img = document.createElement('img');
           img.className = 'event-thumb';
-          img.alt = ev.plate || 'plate';
+          img.alt = ev.plateCode || 'plate';
           if (ev.plateImg) {
             img.src = `/api/events/image?file=${encodeURIComponent(ev.plateImg)}`;
           }
@@ -2593,15 +3142,17 @@
 
           const plateSpan = document.createElement('span');
           plateSpan.className = 'event-plate';
-          plateSpan.textContent = ev.plate || '--';
+          plateSpan.textContent = ev.plateCode || '--';
           topRow.appendChild(plateSpan);
 
-          if (ev.plateType) {
-            const typeSpan = document.createElement('span');
-            typeSpan.className = 'event-badge';
-            typeSpan.textContent = ev.plateType;
-            topRow.appendChild(typeSpan);
-          }
+          const st = PLATE_TYPE_STYLES[ev.plateType] || DEFAULT_PLATE_STYLE;
+          const typeSpan = document.createElement('span');
+          typeSpan.className = 'event-badge';
+          typeSpan.style.background = st.bg;
+          typeSpan.style.color = st.text;
+          typeSpan.style.border = `1px solid ${st.border}`;
+          typeSpan.textContent = st.label;
+          topRow.appendChild(typeSpan);
 
           const confSpan = document.createElement('span');
           confSpan.style.fontSize = '11px';
@@ -2613,9 +3164,9 @@
           const meta = document.createElement('div');
           meta.className = 'event-meta';
           const videoHint = ev.videoFile
-            ? `📹 ${ev.videoFile} · 偏移 ${formatOffset(ev.videoOffsetMs)}`
+            ? `📹 ${formatHms(ev.eventTimeMs)} · 偏移 ${formatOffset(ev.videoOffsetMs)}`
             : '⚠️ 未关联录像（仅抓拍）';
-          meta.innerHTML = `<div>${formatTime(ev.ts)}</div><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${videoHint}</div>`;
+          meta.innerHTML = `<div>${formatTime(ev.eventTimeMs)}</div><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${videoHint}</div>`;
 
           info.appendChild(topRow);
           info.appendChild(meta);
@@ -2627,22 +3178,28 @@
             document.querySelectorAll('#eventList .event-card.active').forEach(el => el.classList.remove('active'));
             card.classList.add('active');
 
-            if (ev.fullImg && fullSnapWrap && fullSnapImg) {
-              fullSnapImg.src = `/api/events/image?file=${encodeURIComponent(ev.fullImg)}`;
-              if (snapTitleEl) snapTitleEl.textContent = `全景抓拍: ${ev.plate} (${formatTime(ev.ts)})`;
+            if (ev.snapImg && fullSnapWrap && fullSnapImg) {
+              fullSnapImg.src = `/api/events/image?file=${encodeURIComponent(ev.snapImg)}`;
+              if (snapTitleEl) snapTitleEl.textContent = `全景抓拍: ${ev.plateCode || '--'} (${formatTime(ev.eventTimeMs)})`;
               fullSnapWrap.style.display = 'block';
             }
 
             if (ev.videoFile) {
+              const segIdx = segments.findIndex(s => s.name === ev.videoFile);
               const rawSec = Math.floor((ev.videoOffsetMs || 0) / 1000);
               const preRollSec = Math.max(0, rawSec - 2);
-              playVideoFileAt(
-                ev.videoFile,
-                preRollSec,
-                `车牌 ${ev.plate} · 录像 ${ev.videoFile} · 定位 ${formatOffset(ev.videoOffsetMs)} (提前2秒预卷)`
-              );
+              currentWallMs = Math.max(0, (ev.eventTimeMs || 0) - 2000);
+              if (segIdx >= 0) {
+                playSegmentAt(
+                  segIdx,
+                  preRollSec,
+                  `车牌 ${ev.plateCode || '--'} · ${formatTime(ev.eventTimeMs)} (提前2秒预卷)`
+                );
+              } else {
+                seekToWallTime(currentWallMs);
+              }
             } else if (nowInfoEl) {
-              nowInfoEl.textContent = `车牌 ${ev.plate} 无关联录像文件，已展示全景抓拍`;
+              nowInfoEl.textContent = `车牌 ${ev.plateCode || '--'} 无关联录像文件，已展示全景抓拍`;
             }
           });
 
@@ -2680,7 +3237,7 @@
       }
 
       if (searchBtn) searchBtn.addEventListener('click', () => { currentOffset = 0; loadEvents(); });
-      if (refreshBtn) refreshBtn.addEventListener('click', () => loadEvents());
+      if (refreshBtn) refreshBtn.addEventListener('click', () => { loadSegmentsAndTimeline(); loadEvents(); });
       if (typeSelect) typeSelect.addEventListener('change', () => { currentOffset = 0; loadEvents(); });
       if (searchInput) {
         searchInput.addEventListener('keydown', (e) => {

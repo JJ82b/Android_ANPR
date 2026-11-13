@@ -57,22 +57,26 @@ flowchart LR
   - 切换到 **过车回放** 时隐藏实时流工具栏与实时面板，自动拉取 `/files.json` 录像分段列表与 `/api/events` 过车事件。
   - 切回 **实时监控** 时自动暂停回放 `<video>`，避免后台持续占用解码资源。
 
-### 2. 检索、分页与事件卡片列表
+### 2. 统一大时间轨与双视频无缝衔接
 
-- **多条件检索**：
-  - 车牌关键字输入（`#eventSearchInput`，支持回车触发检索）
-  - 车牌类型过滤（`#eventTypeSelect`：全部 / 蓝牌 / 绿牌 / 黄牌）
-  - 手动刷新（`#eventRefreshBtn`）与分页器（`#eventPrevBtn` / `#eventNextBtn`，每页 `50` 条）
-- **卡片内容**：
-  - 车牌缩略图（`/api/events/image?file=<plateImg>`）
-  - 车牌号、车牌类型徽章、置信度百分比
-  - 过车时间（`YYYY-MM-DD HH:mm:ss`）与关联录像文件名及偏移（`MM:SS`）
+- **文件路径**：[index.html](file:///home/chunxiaobian/Projects/Android_ANPR/app/src/main/assets/index.html)
+- **统一时间轨 (`#playbackTimelineCanvas`)**：
+  - 自动解析 `/files.json` 中所有 `.mp4` 分段文件名的 `yyyyMMdd_HHmmss` 起始时间与 `lastModifiedMs`（并在视频 `loadedmetadata` 后用实际 `video.duration` 校准），按时间顺序拼接为连续时间轨。
+  - 在时间轨上同步绘制**录像覆盖色块**、**时间刻度**、**过车事件打点**与**实时播放指针**，支持点击/拖拽任意时间点跳转、`全部 / 1小时 / 15分钟` 缩放以及悬停提示车牌与时间。
+  - 提供统一的播放控制栏（`▶ 播放 / ⏸ 暂停`、`-10s`、`+10s`、`1.0x / 2.0x / 4.0x` 倍速与实时墙钟时间显示）。
+- **双 `<video>` 无缝衔接（`playbackVideoA` + `playbackVideoB`）**：
+  - 当前播放分段距离结束不足 2.5 秒时，后台备用 `<video>` 自动预加载下一分段；当前分段触发 `ended` 时立即切换显隐并续播，消除分段切换时的黑屏卡顿。
 
-### 3. 一键定位与 2 秒预卷播放
+### 3. 回放车牌看板与画面车牌框叠加
 
-- 点击任意过车事件卡片后：
-  1. 若存在 `fullImg`，在播放器下方展开**全景抓拍**预览（`/api/events/image?file=<fullImg>`），支持一键收起。
-  2. 若存在 `videoFile`：
-     - 自动计算预卷时间：`preRollSec = Math.max(0, Math.floor(videoOffsetMs / 1000) - 2)`（提前 2 秒定位，方便观察车辆驶入过程）。
-     - 若当前 `<video>` 已加载同一个分段文件，则直接设置 `videoEl.currentTime = preRollSec` 并播放；否则切换 `src` 为 `/files/stream/<videoFile>`，在 `loadedmetadata` 事件触发后精确跳转到 `preRollSec` 并自动播放。
-  3. 同步更新底部状态栏与 **下载 MP4** 链接（`/files/<videoFile>`），并允许通过分段下拉框（`#playbackSegmentSelect`）直接播放任意 MP4 分段。
+- **数据库扩展（`PlateEventStore.kt` v2）**：
+  - [PlateEventStore.kt](file:///home/chunxiaobian/Projects/Android_ANPR/app/src/main/kotlin/com/github/digitallyrefined/androidipcamera/helpers/PlateEventStore.kt) 升级 `DB_VERSION = 2`（自动执行 `ALTER TABLE` 迁移），持久化归一化坐标 `box_x1 / box_y1 / box_x2 / box_y2`（`0.0..1.0`），并在 `/api/events` 中返回 `box: { x1, y1, x2, y2 }`。
+- **回放画面车牌看板（`#pb-alpr-card` + `#pb-alpr-extra-cards`）**：
+  - 沿用实时监控界面的 `PLATE_TYPE_STYLES` 颜色与大号字样，随回放时间轴实时展示当前画面出现的车牌（支持多车牌同帧展示）。
+- **回放画面车牌框叠加（`#playbackOverlayCanvas`）**：
+  - 依据 `<video>` `object-fit: contain` 的实际绘制区域动态映射归一化坐标，在回放视频上实时绘制与实时预览一致的彩色车牌框与车牌号标签。
+
+### 4. 过车记录检索与字段修复
+
+- 修复前端字段映射：`plateCode`、`plateType`（整型 `0..9`）、`eventTimeMs`、`snapImg`、`plateImg`，解决此前列表显示 `undefined` 的问题，并放大过车列表中的车牌号（`19px`）与缩略图（`124×48`）。
+- 保留车牌关键字检索、车牌类型筛选（整型枚举）、分页器与点击记录联动全景抓拍 + 提前 2 秒预卷定位播放。
