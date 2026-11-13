@@ -739,6 +739,46 @@ class StreamingServerHelper(
                 return
             }
 
+            if (path == "/api/plate") {
+                val json = onPlateStatus()
+                writer.print("HTTP/1.1 200 OK\r\n")
+                writer.print("Content-Type: application/json; charset=utf-8\r\n")
+                writer.print("Cache-Control: no-cache\r\n")
+                writer.print("Connection: close\r\n\r\n")
+                writer.print(json)
+                writer.flush()
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+
+            if (path == "/api/alpr/config") {
+                val query = uri.substringAfter('?', "")
+                val json = if (httpMethod == "POST" || query.isNotBlank()) {
+                    val params = query.split('&')
+                        .mapNotNull { part ->
+                            val idx = part.indexOf('=')
+                            if (idx <= 0) null
+                            else {
+                                val k = java.net.URLDecoder.decode(part.substring(0, idx), "UTF-8")
+                                val v = java.net.URLDecoder.decode(part.substring(idx + 1), "UTF-8")
+                                k to v
+                            }
+                        }
+                        .toMap()
+                    if (params.isEmpty()) onAlprConfigGet() else onAlprConfigSet(params)
+                } else {
+                    onAlprConfigGet()
+                }
+                writer.print("HTTP/1.1 200 OK\r\n")
+                writer.print("Content-Type: application/json; charset=utf-8\r\n")
+                writer.print("Cache-Control: no-cache\r\n")
+                writer.print("Connection: close\r\n\r\n")
+                writer.print(json)
+                writer.flush()
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+
             if (uri.contains("?")) {
                 val params = parseQueryParams(uri)
                 val ts = params["ts"]?.toLongOrNull() ?: 0L // for ordering; 0 = none
@@ -936,46 +976,6 @@ class StreamingServerHelper(
                 val info = buildDeviceInfo()
                 writer.print("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n")
                 writer.print(info.toJsonString()); writer.flush()
-                try { socket.close() } catch (_: Exception) {}
-                return
-            }
-
-            if (path == "/api/plate") {
-                val json = onPlateStatus()
-                writer.print("HTTP/1.1 200 OK\r\n")
-                writer.print("Content-Type: application/json; charset=utf-8\r\n")
-                writer.print("Cache-Control: no-cache\r\n")
-                writer.print("Connection: close\r\n\r\n")
-                writer.print(json)
-                writer.flush()
-                try { socket.close() } catch (_: Exception) {}
-                return
-            }
-
-            if (path == "/api/alpr/config") {
-                val query = uri.substringAfter('?', "")
-                val json = if (httpMethod == "POST" || query.isNotBlank()) {
-                    val params = query.split('&')
-                        .mapNotNull { part ->
-                            val idx = part.indexOf('=')
-                            if (idx <= 0) null
-                            else {
-                                val k = java.net.URLDecoder.decode(part.substring(0, idx), "UTF-8")
-                                val v = java.net.URLDecoder.decode(part.substring(idx + 1), "UTF-8")
-                                k to v
-                            }
-                        }
-                        .toMap()
-                    if (params.isEmpty()) onAlprConfigGet() else onAlprConfigSet(params)
-                } else {
-                    onAlprConfigGet()
-                }
-                writer.print("HTTP/1.1 200 OK\r\n")
-                writer.print("Content-Type: application/json; charset=utf-8\r\n")
-                writer.print("Cache-Control: no-cache\r\n")
-                writer.print("Connection: close\r\n\r\n")
-                writer.print(json)
-                writer.flush()
                 try { socket.close() } catch (_: Exception) {}
                 return
             }
@@ -1399,6 +1399,7 @@ class StreamingServerHelper(
                     "contrast" to "0",
                     "mirror" to "false",
                     "fps" to "30",
+                    "bitrate" to "0",
                     "rotate" to "0"
                 )
 
@@ -1522,6 +1523,7 @@ class StreamingServerHelper(
         val resolution: String,
         val streamRes: String,
         val fps: String,
+        val bitrate: String,
         val torch: String,
         val deviceHasFlash: Boolean,
         val audioGain: String,
@@ -1587,6 +1589,7 @@ class StreamingServerHelper(
                 put("resolution", settings.resolution)
                 put("streamRes", settings.streamRes)
                 put("fps", settings.fps)
+                put("bitrate", settings.bitrate)
                 put("torch", settings.torch)
                 // Whether ANY rear lens can drive the flash — the torch is a device-level unit,
                 // so the UI may offer it even when the selected camera reports none.
@@ -1739,6 +1742,7 @@ class StreamingServerHelper(
             resolution = prefs.getString("camera_resolution", "low") ?: "low",
             streamRes = prefs.getString("stream_res", "auto") ?: "auto",
             fps = prefs.getString("stream_fps", "30") ?: "30",
+            bitrate = prefs.getInt("stream_bitrate_kbps", 0).toString(),
             torch = prefs.getString("camera_torch", "off") ?: "off",
             deviceHasFlash = anyBackCameraWithFlash(),
             audioGain = prefs.getString("audio_gain", "1.0") ?: "1.0",

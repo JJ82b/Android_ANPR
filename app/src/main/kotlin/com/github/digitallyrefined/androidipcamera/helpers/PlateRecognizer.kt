@@ -14,25 +14,24 @@ data class AlprConfig(
     val maxNum: Int,
     val boxConfThreshold: Float,
     val recConfidenceThreshold: Float,
-    val threads: Int
+    val threads: Int,
+    val intervalMs: Long = 200L
 ) {
     fun toJson(): String = String.format(
         Locale.US,
-        """{"detLevel":%d,"maxNum":%d,"boxConfThreshold":%.2f,"recConfidenceThreshold":%.2f,"threads":%d}""",
+        """{"detLevel":%d,"maxNum":%d,"boxConfThreshold":%.2f,"recConfidenceThreshold":%.2f,"threads":%d,"intervalMs":%d}""",
         detLevel,
         maxNum,
         boxConfThreshold,
         recConfidenceThreshold,
-        threads
+        threads,
+        intervalMs
     )
 }
 
 class PlateRecognizer(context: Context) {
 
     private val appContext = context.applicationContext
-    private val inferExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
-    private var core: HyperLPRCore? = null
-    private var modelPath: String? = null
 
     // 提供给网页api的变量
     @Volatile
@@ -46,14 +45,13 @@ class PlateRecognizer(context: Context) {
     @Volatile
     var latestTimestamp: Long = 0
         private set
+
+    @Volatile
+    var latestPlateType: Int = HyperLPR3.PLATE_TYPE_UNKNOWN
+        private set
     
     private val isProcessing = AtomicBoolean(false)
     private var lastRunTimeMs = 0L
-    // 车牌检测间隔
-    private val intervalMs = 200L // 200ms (受 isProcessing 保护，不会堆积)
-
-    @Volatile
-    private var currentConfig: AlprConfig = loadConfig(appContext)
 
     companion object {
         private const val PREF_DET_LEVEL = "alpr_det_level"
@@ -61,11 +59,21 @@ class PlateRecognizer(context: Context) {
         private const val PREF_BOX_CONF = "alpr_box_conf_threshold"
         private const val PREF_REC_CONF = "alpr_rec_conf_threshold"
         private const val PREF_THREADS = "alpr_threads"
+        private const val PREF_INTERVAL_MS = "alpr_interval_ms"
 
         private const val DEFAULT_DET_LEVEL = HyperLPR3.DETECT_LEVEL_HIGH
         private const val DEFAULT_MAX_NUM = 3
         private const val DEFAULT_BOX_CONF = 0.20f
         private const val DEFAULT_REC_CONF = 0.65f
+        private const val DEFAULT_INTERVAL_MS = 200L
+
+        // 共享单线程推理/生命周期执行器，避免 CameraXCapture 重建时重复初始化或并发访问 native 上下文
+        private val inferExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+        @Volatile private var sdkInitialized = false
+        @Volatile private var cachedModelPath: String? = null
+        private var customCore: HyperLPRCore? = null
+        @Volatile private var currentRecThreshold: Float = DEFAULT_REC_CONF
+        @Volatile private var currentIntervalMs: Long = DEFAULT_INTERVAL_MS
 
         private fun defaultThreads(): Int =
             Runtime.getRuntime().availableProcessors().coerceIn(2, 4)
@@ -78,7 +86,8 @@ class PlateRecognizer(context: Context) {
             val boxConf = prefs.getFloat(PREF_BOX_CONF, DEFAULT_BOX_CONF).coerceIn(0.05f, 0.95f)
             val recConf = prefs.getFloat(PREF_REC_CONF, DEFAULT_REC_CONF).coerceIn(0.30f, 0.99f)
             val threads = prefs.getInt(PREF_THREADS, defaultThreads()).coerceIn(1, 8)
-            return AlprConfig(detLevel, maxNum, boxConf, recConf, threads)
+            val intervalMs = prefs.getLong(PREF_INTERVAL_MS, DEFAULT_INTERVAL_MS).coerceIn(50L, 2000L)
+            return AlprConfig(detLevel, maxNum, boxConf, recConf, threads, intervalMs)
         }
 
         fun saveConfig(context: Context, config: AlprConfig): AlprConfig {
@@ -87,7 +96,8 @@ class PlateRecognizer(context: Context) {
                 maxNum = config.maxNum.coerceIn(1, 10),
                 boxConfThreshold = config.boxConfThreshold.coerceIn(0.05f, 0.95f),
                 recConfidenceThreshold = config.recConfidenceThreshold.coerceIn(0.30f, 0.99f),
-                threads = config.threads.coerceIn(1, 8)
+                threads = config.threads.coerceIn(1, 8),
+                intervalMs = config.intervalMs.coerceIn(50L, 2000L)
             )
             PreferenceManager.getDefaultSharedPreferences(context).edit()
                 .putInt(PREF_DET_LEVEL, sanitized.detLevel)
@@ -95,53 +105,76 @@ class PlateRecognizer(context: Context) {
                 .putFloat(PREF_BOX_CONF, sanitized.boxConfThreshold)
                 .putFloat(PREF_REC_CONF, sanitized.recConfidenceThreshold)
                 .putInt(PREF_THREADS, sanitized.threads)
+                .putLong(PREF_INTERVAL_MS, sanitized.intervalMs)
                 .apply()
             return sanitized
+        }
+
+        private fun buildParameter(config: AlprConfig, modelPath: String?): HyperLPRParameter {
+            val param = HyperLPRParameter()
+                .setDetLevel(config.detLevel)
+                .setMaxNum(config.maxNum)
+                .setBoxConfThreshold(config.boxConfThreshold)
+                .setRecConfidenceThreshold(config.recConfidenceThreshold)
+                .setThreads(config.threads)
+            if (!modelPath.isNullOrBlank()) {
+                param.setModelPath(modelPath)
+            }
+            return param
+        }
+
+        private fun ensureInitialized(appContext: Context, config: AlprConfig) {
+            currentRecThreshold = config.recConfidenceThreshold
+            currentIntervalMs = config.intervalMs
+            if (sdkInitialized) return
+            try {
+                val param = buildParameter(config, null)
+                HyperLPR3.getInstance().init(appContext, param)
+                cachedModelPath = param.modelPath
+                    ?: appContext.getExternalFilesDir(null)?.let { "${it.absolutePath}/" }
+                sdkInitialized = true
+                Log.i("ALPR", "HyperLPR3 初始化完成: $config, modelPath=$cachedModelPath")
+            } catch (e: Exception) {
+                Log.e("ALPR", "初始化 HyperLPR3 失败: ${e.message}")
+            }
         }
     }
 
     init {
+        val initialConfig = loadConfig(appContext)
         inferExecutor.execute {
-            initCoreLocked(currentConfig)
-        }
-    }
-
-    private fun buildParameter(config: AlprConfig): HyperLPRParameter {
-        val param = HyperLPRParameter()
-            .setDetLevel(config.detLevel)
-            .setMaxNum(config.maxNum)
-            .setBoxConfThreshold(config.boxConfThreshold)
-            .setRecConfidenceThreshold(config.recConfidenceThreshold)
-            .setThreads(config.threads)
-        modelPath?.let { param.setModelPath(it) }
-        return param
-    }
-
-    private fun initCoreLocked(config: AlprConfig) {
-        try {
-            val param = buildParameter(config)
-            if (modelPath == null) {
-                // 首次通过 HyperLPR3.init 将内置 r2_mobile 模型解压到外部存储并获取 modelPath
-                HyperLPR3.getInstance().init(appContext, param)
-                modelPath = param.modelPath
-                HyperLPR3.getInstance().release()
-            }
-            core?.release()
-            core = HyperLPRCore().apply {
-                createRecognizerContext(buildParameter(config))
-            }
-            currentConfig = config
-            Log.i("ALPR", "HyperLPR3 已初始化: $config")
-        } catch (e: Exception) {
-            Log.e("ALPR", "初始化 HyperLPR3 失败: ${e.message}")
+            ensureInitialized(appContext, initialConfig)
         }
     }
 
     fun reloadConfig(config: AlprConfig = loadConfig(appContext)) {
         val saved = saveConfig(appContext, config)
-        currentConfig = saved
+        currentRecThreshold = saved.recConfidenceThreshold
+        currentIntervalMs = saved.intervalMs
         inferExecutor.execute {
-            initCoreLocked(saved)
+            try {
+                if (!sdkInitialized) {
+                    ensureInitialized(appContext, saved)
+                    return@execute
+                }
+                val modelDir = cachedModelPath
+                    ?: appContext.getExternalFilesDir(null)?.let { "${it.absolutePath}/" }
+                if (modelDir.isNullOrBlank()) {
+                    Log.e("ALPR", "重载失败：modelPath 为空")
+                    return@execute
+                }
+                if (customCore != null) {
+                    customCore?.release()
+                } else {
+                    HyperLPR3.getInstance().release()
+                }
+                customCore = HyperLPRCore().apply {
+                    createRecognizerContext(buildParameter(saved, modelDir))
+                }
+                Log.i("ALPR", "HyperLPR3 参数已热重载: $saved")
+            } catch (e: Exception) {
+                Log.e("ALPR", "重载 HyperLPR3 失败: ${e.message}")
+            }
         }
     }
 
@@ -159,7 +192,7 @@ class PlateRecognizer(context: Context) {
     ) {
         val now = System.currentTimeMillis()
         // 節流閥：時間未到或上一幀還在算，直接跳過，不影響串流幀率
-        if (now - lastRunTimeMs < intervalMs || !isProcessing.compareAndSet(false, true)) {
+        if (now - lastRunTimeMs < currentIntervalMs || !isProcessing.compareAndSet(false, true)) {
             return
         }
         lastRunTimeMs = now
@@ -176,23 +209,35 @@ class PlateRecognizer(context: Context) {
                     else -> HyperLPR3.CAMERA_ROTATION_0
                 }
 
-                val activeCore = core ?: return@execute
-                val plates = activeCore.plateRecognitionFromBuffer(
-                    frameCopy,
-                    height,
-                    width,
-                    rotation,
-                    HyperLPR3.STREAM_YUV_NV21
-                )
+                if (!sdkInitialized) return@execute
+                val activeCore = customCore
+                val plates = if (activeCore != null) {
+                    activeCore.plateRecognitionFromBuffer(
+                        frameCopy,
+                        height,
+                        width,
+                        rotation,
+                        HyperLPR3.STREAM_YUV_NV21
+                    )
+                } else {
+                    HyperLPR3.getInstance().plateRecognition(
+                        frameCopy,
+                        height,
+                        width,
+                        rotation,
+                        HyperLPR3.STREAM_YUV_NV21
+                    )
+                }
 
-                val minRecConf = currentConfig.recConfidenceThreshold
+                val minRecConf = currentRecThreshold
                 if (!plates.isNullOrEmpty()) {
                     val best = plates.maxByOrNull { it.confidence }
                     if (best != null && best.confidence >= minRecConf && best.code.isNotBlank()) {
                         latestPlate = best.code
                         latestConfidence = best.confidence
                         latestTimestamp = System.currentTimeMillis()
-                        Log.i("ALPR", "识别到车牌: ${best.code} (${String.format("%.1f", best.confidence * 100)}%)")
+                        latestPlateType = best.type
+                        Log.i("ALPR", "识别到车牌: ${best.code} type=${best.type} (${String.format("%.1f", best.confidence * 100)}%)")
                         onDetected?.invoke(best.code, best.confidence)
                     }
                 }

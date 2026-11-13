@@ -414,7 +414,8 @@ class StreamingService : LifecycleService() {
                     val plate = recognizer?.latestPlate ?: ""
                     val conf = recognizer?.latestConfidence ?: 0f
                     val ts = recognizer?.latestTimestamp ?: 0L
-                    """{"plate":"$plate","confidence":$conf,"time":$ts}"""
+                    val type = recognizer?.latestPlateType ?: com.hyperai.hyperlpr3.HyperLPR3.PLATE_TYPE_UNKNOWN
+                    """{"plate":"$plate","confidence":$conf,"time":$ts,"type":$type}"""
                 },
                 onAlprConfigGet = {
                     com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this).toJson()
@@ -426,7 +427,8 @@ class StreamingService : LifecycleService() {
                         maxNum = params["maxNum"]?.toIntOrNull() ?: current.maxNum,
                         boxConfThreshold = params["boxConfThreshold"]?.toFloatOrNull() ?: current.boxConfThreshold,
                         recConfidenceThreshold = params["recConfidenceThreshold"]?.toFloatOrNull() ?: current.recConfidenceThreshold,
-                        threads = params["threads"]?.toIntOrNull() ?: current.threads
+                        threads = params["threads"]?.toIntOrNull() ?: current.threads,
+                        intervalMs = params["intervalMs"]?.toLongOrNull() ?: current.intervalMs
                     )
                     val saved = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.saveConfig(this, updated)
                     (backend as? com.github.digitallyrefined.androidipcamera.helpers.CameraXCapture)?.plateRecognizer?.reloadConfig(saved)
@@ -956,7 +958,7 @@ class StreamingService : LifecycleService() {
                 size.width,
                 size.height,
                 fpsCoerced,
-                H264HardwareEncoder.bitrateFor(size.width, size.height),
+                configuredBitrateBps(size.width, size.height),
                 true // useSurface = true
             ) { d, k, pts -> h264.broadcastH264(d, k, pts) }
 
@@ -1130,6 +1132,13 @@ class StreamingService : LifecycleService() {
         }
     }
 
+    private fun configuredBitrateBps(w: Int, h: Int): Int {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val kbps = prefs.getInt("stream_bitrate_kbps", 0)
+        return if (kbps > 0) H264HardwareEncoder.clampBitrate(kbps * 1000L)
+        else H264HardwareEncoder.bitrateFor(w, h)
+    }
+
     /** Per-camera rotate= knob (token then physical id fallback). Consumers apply their own
      *  quantisation: the byte-buffer H.264 encoder snaps to 90° (YUV rotate cost) and the GL pipe
      *  only acts on 90° multiples. Returns the raw stored angle. */
@@ -1158,7 +1167,7 @@ class StreamingService : LifecycleService() {
         val fps = prefs.getString("stream_fps", "30")?.toIntOrNull() ?: 30
         val fpsCoerced = fps.coerceIn(1, 60)
         val frame = surfaceEncoderSize(cameraSize)
-        val enc = H264HardwareEncoder(frame.width, frame.height, fpsCoerced, H264HardwareEncoder.bitrateFor(frame.width, frame.height), true) { d, k, pts -> h264StreamingEncoder?.broadcastH264(d, k, pts) }
+        val enc = H264HardwareEncoder(frame.width, frame.height, fpsCoerced, configuredBitrateBps(frame.width, frame.height), true) { d, k, pts -> h264StreamingEncoder?.broadcastH264(d, k, pts) }
         h264StreamingEncoder?.setEncoder(enc)
         streamingServerHelper?.resetH264Wait()
         return CameraGlPipe(enc.inputSurface!!, frame.width, frame.height, fpsCoerced).also {
@@ -1602,6 +1611,14 @@ class StreamingService : LifecycleService() {
                 prefs.edit().putString("exposure_$id", ev.toString()).apply()
                 if (physicalId.isNotBlank() && physicalId != id) prefs.edit().putString("exposure_$physicalId", ev.toString()).apply()
                 launchMain { backend?.setExposure(ev) }
+            }
+            "bitrate" -> {
+                val kbps = value.toIntOrNull()?.coerceIn(0, 20000) ?: return
+                prefs.edit().putInt("stream_bitrate_kbps", kbps).apply()
+                h264StreamingEncoder?.h264HardwareEncoder?.let { enc ->
+                    val targetBps = if (kbps > 0) kbps * 1000 else H264HardwareEncoder.bitrateFor(enc.width, enc.height)
+                    enc.updateBitrate(targetBps)
+                }
             }
             "zoom" -> {
                 val z = value.toFloatOrNull() ?: return

@@ -297,16 +297,19 @@
 
       <div class='controls-content'>
         <!-- 新增：实时车牌识别看板 -->
-        <div class='setting-group' style="border-left: 4px solid #38bdf8; background: #1e293b;">
+        <div id="alpr-card" class='setting-group' style="border-left: 4px solid #38bdf8; background: #1e293b; transition: background-color 0.25s ease, border-color 0.25s ease;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <h3 style="color: #38bdf8; margin: 0;">ALPR 车牌识别</h3>
-            <button id="alpr-adv-toggle" type="button" style="background: transparent; border: 1px solid #334155; color: #94a3b8; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;">高级选项 ▾</button>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h3 id="alpr-title" style="color: #38bdf8; margin: 0;">ALPR 车牌识别</h3>
+              <span id="alpr-type" style="display: none; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.16); color: #e2e8f0;"></span>
+            </div>
+            <button id="alpr-adv-toggle" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;">高级选项 ▾</button>
           </div>
           <div style="display: flex; align-items: baseline; justify-content: space-between;">
             <span id="alpr-plate" style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #fff;">等待检测...</span>
-            <span id="alpr-meta" style="font-size: 12px; color: #94a3b8;"></span>
+            <span id="alpr-meta" style="font-size: 12px; color: #cbd5e1;"></span>
           </div>
-          <div id="alpr-adv-panel" style="display: none; margin-top: 12px; padding-top: 10px; border-top: 1px solid #334155;">
+          <div id="alpr-adv-panel" style="display: none; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(148,163,184,0.3); color: #e2e8f0;">
             <label for="alprDetLevel">检测精度 (DetLevel)</label>
             <select id="alprDetLevel" class="camera-select" style="margin-bottom: 10px;">
               <option value="1">高精度 (DETECT_LEVEL_HIGH)</option>
@@ -325,8 +328,11 @@
             <label for="alprThreads">CPU 推理线程数 (Threads) <span class="val-badge" id="alprThreadsVal">4</span></label>
             <input type="range" id="alprThreads" min="1" max="8" step="1" value="4">
 
+            <label for="alprIntervalMs">车牌采样间隔 (Interval) <span class="val-badge" id="alprIntervalMsVal">200ms</span></label>
+            <input type="range" id="alprIntervalMs" min="50" max="2000" step="50" value="200">
+
             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
-              <span id="alpr-adv-status" style="font-size: 12px; color: #94a3b8;"></span>
+              <span id="alpr-adv-status" style="font-size: 12px; color: #cbd5e1;"></span>
               <button id="alpr-adv-apply" type="button" class="btn btn-action" style="width: auto; padding: 6px 14px; margin: 0;">应用并重载模型</button>
             </div>
           </div>
@@ -409,6 +415,9 @@
 
           <label for="fps">Frame Rate (fps)</label>
           <input id="fps" type='number' min='1' max='60' value='30' data-control='fps'>
+
+          <label for="bitrate">H.264 Bitrate (kbps, 0 = Auto)</label>
+          <input id="bitrate" type='number' min='0' max='20000' step='100' value='0' data-control='bitrate'>
 
           <div style="margin-top:12px;">
             <button id="resetDefaultsBtn" class="btn" style="width:100%;">Reset to defaults</button>
@@ -1463,6 +1472,10 @@
       if (fps && settings.fps) {
         fps.value = settings.fps;
       }
+      const bitrate = getElById('bitrate');
+      if (bitrate && settings.bitrate !== undefined) {
+        bitrate.value = settings.bitrate;
+      }
       // Motion detection is only meaningful with ONVIF (event reporting), so keep its
       // controls hidden unless the server reports ONVIF as enabled.
       if (settings.onvifEnabled !== undefined) {
@@ -1891,6 +1904,20 @@
     }
 
     // ---- 定时轮询 HyperLPR3 车牌识别结果 ----
+    const PLATE_TYPE_STYLES = {
+      0: { label: '蓝牌', bg: '#1e3a8a', border: '#60a5fa', title: '#bfdbfe', text: '#ffffff', meta: '#dbeafe', badgeBg: 'rgba(255,255,255,0.18)', badgeText: '#ffffff' },
+      1: { label: '黄牌单层', bg: '#eab308', border: '#fde047', title: '#422006', text: '#111827', meta: '#422006', badgeBg: 'rgba(0,0,0,0.14)', badgeText: '#111827' },
+      2: { label: '白牌单层', bg: '#f1f5f9', border: '#cbd5e1', title: '#334155', text: '#0f172a', meta: '#475569', badgeBg: 'rgba(15,23,42,0.12)', badgeText: '#0f172a' },
+      3: { label: '绿牌新能源', bg: '#15803d', border: '#4ade80', title: '#bbf7d0', text: '#ffffff', meta: '#dcfce7', badgeBg: 'rgba(255,255,255,0.18)', badgeText: '#ffffff' },
+      4: { label: '黑牌港澳', bg: '#111827', border: '#94a3b8', title: '#cbd5e1', text: '#ffffff', meta: '#94a3b8', badgeBg: 'rgba(255,255,255,0.16)', badgeText: '#ffffff' },
+      5: { label: '香港单层', bg: '#111827', border: '#94a3b8', title: '#cbd5e1', text: '#ffffff', meta: '#94a3b8', badgeBg: 'rgba(255,255,255,0.16)', badgeText: '#ffffff' },
+      6: { label: '香港双层', bg: '#111827', border: '#94a3b8', title: '#cbd5e1', text: '#ffffff', meta: '#94a3b8', badgeBg: 'rgba(255,255,255,0.16)', badgeText: '#ffffff' },
+      7: { label: '澳门单层', bg: '#111827', border: '#94a3b8', title: '#cbd5e1', text: '#ffffff', meta: '#94a3b8', badgeBg: 'rgba(255,255,255,0.16)', badgeText: '#ffffff' },
+      8: { label: '澳门双层', bg: '#111827', border: '#94a3b8', title: '#cbd5e1', text: '#ffffff', meta: '#94a3b8', badgeBg: 'rgba(255,255,255,0.16)', badgeText: '#ffffff' },
+      9: { label: '黄牌双层', bg: '#ca8a04', border: '#fde047', title: '#422006', text: '#111827', meta: '#422006', badgeBg: 'rgba(0,0,0,0.14)', badgeText: '#111827' }
+    };
+    const DEFAULT_PLATE_STYLE = { label: '未知类型', bg: '#1e293b', border: '#38bdf8', title: '#38bdf8', text: '#ffffff', meta: '#cbd5e1', badgeBg: 'rgba(255,255,255,0.16)', badgeText: '#e2e8f0' };
+
     let lastPlateTs = 0;
     setInterval(() => {
       fetch('/api/plate', { credentials: 'include', cache: 'no-store' })
@@ -1898,13 +1925,32 @@
         .then(data => {
           if (data.plate && data.time !== lastPlateTs) {
             lastPlateTs = data.time;
+            const cardEl = getElById('alpr-card');
+            const titleEl = getElById('alpr-title');
+            const typeEl = getElById('alpr-type');
             const plateEl = getElById('alpr-plate');
             const metaEl = getElById('alpr-meta');
-            if (plateEl) plateEl.innerText = data.plate;
+            const style = PLATE_TYPE_STYLES[data.type] || DEFAULT_PLATE_STYLE;
+            if (cardEl) {
+              cardEl.style.background = style.bg;
+              cardEl.style.borderLeftColor = style.border;
+            }
+            if (titleEl) titleEl.style.color = style.title;
+            if (typeEl) {
+              typeEl.style.display = 'inline-block';
+              typeEl.innerText = style.label;
+              typeEl.style.background = style.badgeBg;
+              typeEl.style.color = style.badgeText;
+            }
+            if (plateEl) {
+              plateEl.innerText = data.plate;
+              plateEl.style.color = style.text;
+            }
             if (metaEl) {
               const pct = (data.confidence * 100).toFixed(1);
               const timeStr = new Date(data.time).toLocaleTimeString();
               metaEl.innerText = `${pct}% · ${timeStr}`;
+              metaEl.style.color = style.meta;
             }
           }
         })
@@ -1924,6 +1970,8 @@
       const recConfValEl = getElById('alprRecConfVal');
       const threadsEl = getElById('alprThreads');
       const threadsValEl = getElById('alprThreadsVal');
+      const intervalMsEl = getElById('alprIntervalMs');
+      const intervalMsValEl = getElById('alprIntervalMsVal');
       const applyBtn = getElById('alpr-adv-apply');
       const statusEl = getElById('alpr-adv-status');
 
@@ -1934,9 +1982,10 @@
         if (boxConfValEl && boxConfEl) boxConfValEl.innerText = Number(boxConfEl.value).toFixed(2);
         if (recConfValEl && recConfEl) recConfValEl.innerText = Number(recConfEl.value).toFixed(2);
         if (threadsValEl && threadsEl) threadsValEl.innerText = threadsEl.value;
+        if (intervalMsValEl && intervalMsEl) intervalMsValEl.innerText = `${intervalMsEl.value}ms`;
       }
 
-      [maxNumEl, boxConfEl, recConfEl, threadsEl].forEach(el => {
+      [maxNumEl, boxConfEl, recConfEl, threadsEl, intervalMsEl].forEach(el => {
         if (el) el.addEventListener('input', syncBadges);
       });
 
@@ -1947,6 +1996,7 @@
         if (boxConfEl) boxConfEl.value = Number(cfg.boxConfThreshold).toFixed(2);
         if (recConfEl) recConfEl.value = Number(cfg.recConfidenceThreshold).toFixed(2);
         if (threadsEl) threadsEl.value = String(cfg.threads);
+        if (intervalMsEl && cfg.intervalMs !== undefined) intervalMsEl.value = String(cfg.intervalMs);
         syncBadges();
       }
 
@@ -1968,7 +2018,8 @@
             maxNum: maxNumEl ? maxNumEl.value : '3',
             boxConfThreshold: boxConfEl ? boxConfEl.value : '0.20',
             recConfidenceThreshold: recConfEl ? recConfEl.value : '0.65',
-            threads: threadsEl ? threadsEl.value : '4'
+            threads: threadsEl ? threadsEl.value : '4',
+            intervalMs: intervalMsEl ? intervalMsEl.value : '200'
           }).toString();
           if (statusEl) statusEl.innerText = '正在保存并重载...';
           fetch(`/api/alpr/config?${qs}`, { method: 'POST', credentials: 'include', cache: 'no-store' })

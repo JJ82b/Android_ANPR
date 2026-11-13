@@ -84,6 +84,16 @@ class H264HardwareEncoder(
         try { codec.setParameters(Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0) }) } catch (_: Exception) {}
     }
 
+    fun updateBitrate(bps: Int) {
+        try {
+            val clamped = clampBitrate(bps.toLong())
+            codec.setParameters(Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, clamped) })
+            Log.i(TAG, "Updated H264 bitrate to ${clamped / 1000}kbps")
+        } catch (e: Exception) {
+            Log.w(TAG, "updateBitrate failed: ${e.message}")
+        }
+    }
+
     /** ponytail: NV12 vs I420 is the classic cross-device MediaCodec gotcha — ask the codec which it takes. */
     private fun pickYuvFormat(): Int {
         val supported = try { codec.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).colorFormats.toSet() }
