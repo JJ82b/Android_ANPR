@@ -149,5 +149,8 @@ dependencies {
     implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
     implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
 
+    // HyperLPR3 for license plate recognition
+    implementation 'com.github.HyperInspire:hyperlpr3-android-sdk:1.0.3'
+
     testImplementation 'junit:junit:4.13.2'
 }

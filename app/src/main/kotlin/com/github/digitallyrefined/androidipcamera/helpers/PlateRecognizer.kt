@@ -1,4 +1,4 @@
-package com.digitallyrefined.androidipcamera.helpers
+package com.github.digitallyrefined.androidipcamera.helpers
 
 import android.content.Context
 import android.util.Log
@@ -7,6 +7,8 @@ import com.hyperai.hyperlpr3.bean.HyperLPRParameter
 import java.util.concurrent.atomic.AtomicBoolean
 
 class PlateRecognizer(context: Context) {
+
+    private val inferExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     // 提供给网页api的变量
     @Volatile
@@ -24,15 +26,21 @@ class PlateRecognizer(context: Context) {
     private val isProcessing = AtomicBoolean(false)
     private var lastRunTimeMs = 0L
     // 车牌检测间隔
-    private val intervalMs = 400L // 400ms
+    private val intervalMs = 200L // 200ms (受 isProcessing 保护，不会堆积)
+
+    companion object {
+        private const val MIN_REC_CONFIDENCE = 0.65f
+    }
 
     init {
+        val threads = Runtime.getRuntime().availableProcessors().coerceIn(2, 4)
         val param = HyperLPRParameter()
-            .setDetLevel(HyperLPR3.DETECT_LEVEL_LOW)
-            .setMaxNum(2)
-            .setRecConfidenceThreshold(0.85f)
-            .setThreads(2) // cpu线程数
-        
+            .setDetLevel(HyperLPR3.DETECT_LEVEL_HIGH)
+            .setMaxNum(3)
+            .setBoxConfThreshold(0.20f)
+            .setRecConfidenceThreshold(MIN_REC_CONFIDENCE)
+            .setThreads(threads) // cpu线程数
+
         HyperLPR3.getInstance().init(context.applicationContext, param)
     }
 
@@ -77,7 +85,7 @@ class PlateRecognizer(context: Context) {
 
                 if (!plates.isNullOrEmpty()) {
                     val best = plates.maxByOrNull { it.confidence }
-                    if (best != null && best.confidence >= 0.85f && best.code.isNotBlank()) {
+                    if (best != null && best.confidence >= MIN_REC_CONFIDENCE && best.code.isNotBlank()) {
                         latestPlate = best.code
                         latestConfidence = best.confidence
                         latestTimestamp = System.currentTimeMillis()

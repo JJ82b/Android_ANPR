@@ -31,6 +31,7 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import androidx.preference.PreferenceManager
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
@@ -118,6 +119,26 @@ class CameraXCapture(
         ?.substringAfter(':', "")
         ?.takeIf { it.isNotBlank() }
 
+    private val prefs by lazy { PreferenceManager.getDefaultSharedPreferences(ctx) }
+
+    /**
+     * Match the manual per-camera `rotate=` setting (0/90/180/270) used by the video encoders
+     * instead of `img.imageInfo.rotationDegrees`: ImageAnalysis is pinned to Surface.ROTATION_0,
+     * so `imageInfo.rotationDegrees` always reports the sensor mount angle (typically 90°) even
+     * when the device is mounted horizontally (landscape, rotate=0).
+     */
+    private fun readConfiguredRotationDegrees(): Int {
+        val camId = cameraId ?: prefs.getString("camera_id", null) ?: return 0
+        val phys = camId.substringAfter(':', camId)
+        val raw = when {
+            prefs.contains("camera_rotate_$camId") -> prefs.getInt("camera_rotate_$camId", 0)
+            prefs.contains("camera_rotate_$phys") -> prefs.getInt("camera_rotate_$phys", 0)
+            else -> 0
+        }
+        val norm = ((raw % 360) + 360) % 360
+        return ((Math.round(norm / 90f) * 90) % 360 + 360) % 360
+    }
+
     @OptIn(ExperimentalCamera2Interop::class)
     fun start() {
         val future = ProcessCameraProvider.getInstance(ctx)
@@ -163,12 +184,12 @@ class CameraXCapture(
                                         nv21RowBuffer = ByteArray(img.planes[0].rowStride)
                                     }
 
-                                    // 将nv12数据传给车牌识别器进行识别
+                                    // 将nv21数据传给车牌识别器进行识别（方向与视频流的 rotate 设置保持一致）
                                     plateRecognizer.processNv21Async(
                                         nv21Source = it,
                                         width = crop.width(),
                                         height = crop.height(),
-                                        rotationDegrees = img.imageInfo.rotationDegrees
+                                        rotationDegrees = readConfiguredRotationDegrees()
                                     )
                                 }
                             }

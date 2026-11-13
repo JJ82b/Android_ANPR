@@ -66,6 +66,8 @@ class StreamingService : LifecycleService() {
     /** Optional ONVIF service (Settings > ONVIF) advertising the RTSP stream and motion events. */
     @Volatile private var onvifServer: OnvifServer? = null
     private var multicastLock: android.net.wifi.WifiManager.MulticastLock? = null
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
+    private var wifiLock: android.net.wifi.WifiManager.WifiLock? = null
     /** Motion detection over the capture frames already delivered to the streaming pipeline. */
     private var motionMonitor: MotionMonitor? = null
 
@@ -202,6 +204,7 @@ class StreamingService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         startForegroundService()
+        acquirePowerLocks()
         val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         val savedCameraId = prefs.getString(PREF_CAMERA_ID, null)
         if (savedCameraId != null) {
@@ -252,7 +255,48 @@ class StreamingService : LifecycleService() {
         rtspServer?.let { server -> Thread { server.stop() }.start() }
         motionMonitor?.detector?.reset()
         stopOnvif()
+        releasePowerLocks()
         lifecycleScope.launch(Dispatchers.IO) { streamingServerHelper?.stopStreamingServer() }
+    }
+
+    private fun acquirePowerLocks() {
+        try {
+            val pm = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+            if (pm != null && wakeLock == null) {
+                wakeLock = pm.newWakeLock(
+                    android.os.PowerManager.PARTIAL_WAKE_LOCK,
+                    "AndroidIPCamera:StreamingWakeLock"
+                ).apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "acquire WakeLock failed: ${e.message}")
+        }
+        try {
+            val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager
+            if (wm != null && wifiLock == null) {
+                val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    android.net.wifi.WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+                } else {
+                    android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF
+                }
+                wifiLock = wm.createWifiLock(mode, "AndroidIPCamera:StreamingWifiLock").apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "acquire WifiLock failed: ${e.message}")
+        }
+    }
+
+    private fun releasePowerLocks() {
+        try { wakeLock?.takeIf { it.isHeld }?.release() } catch (_: Exception) {}
+        wakeLock = null
+        try { wifiLock?.takeIf { it.isHeld }?.release() } catch (_: Exception) {}
+        wifiLock = null
     }
 
     private fun startForegroundService() {
@@ -363,10 +407,10 @@ class StreamingService : LifecycleService() {
                 onRecordStop = { stopRecording() },
                 onRecordStatus = { getRecordingStatus() },
                 // /control/stop must also drop RTSP viewers, which the HTTP server does not own.
-                onStreamingEnabledChanged = { enabled -> if (!enabled) rtspServer?.disconnectAll() }
+                onStreamingEnabledChanged = { enabled -> if (!enabled) rtspServer?.disconnectAll() },
                 // 传递车牌识别状态给前端
                 onPlateStatus = {
-                    val recognizer = cameraXCapture?.plateRecognizer
+                    val recognizer = (backend as? com.github.digitallyrefined.androidipcamera.helpers.CameraXCapture)?.plateRecognizer
                     val plate = recognizer?.latestPlate ?: ""
                     val conf = recognizer?.latestConfidence ?: 0f
                     val ts = recognizer?.latestTimestamp ?: 0L

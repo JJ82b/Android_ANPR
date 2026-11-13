@@ -60,7 +60,6 @@ class StreamingServerHelper(
     private val onRecordStart: () -> Triple<Boolean, String, String> = { Triple(false, "503 Service Unavailable", """{"error":"unavailable"}""") },
     private val onRecordStop: () -> Triple<Boolean, String, String> = { Triple(false, "409 Conflict", """{"error":"not_recording"}""") },
     private val onRecordStatus: () -> String = { """{"recording":false}""" },
-    private val onStreamingEnabledChanged: (Boolean) -> Unit = {}
     // 新加入车牌识别variables
     private val onStreamingEnabledChanged: (Boolean) -> Unit = {},
     private val onPlateStatus: () -> String = { """{"plate":"","confidence":0,"time":0}""" }
