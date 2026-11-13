@@ -146,11 +146,13 @@ class PlateEventStore private constructor(context: Context) :
         val nx2 = (plate.x2 / uprightW).coerceIn(0f, 1f)
         val ny2 = (plate.y2 / uprightH).coerceIn(0f, 1f)
 
+        var needImages = false
+        var matchedId: Long? = null
         synchronized(dbLock) {
             try {
                 val db = writableDatabase
                 val recent = findRecentMatchingEvent(db, plate.code, now - DEDUP_WINDOW_MS)
-                if (recent != null) {
+                if (recent != null && plate.confidence <= recent.confidence) {
                     val values = ContentValues().apply {
                         put("last_seen_ms", now)
                         if (recent.videoFile.isNullOrBlank() && !videoFile.isNullOrBlank()) {
@@ -158,10 +160,37 @@ class PlateEventStore private constructor(context: Context) :
                             put("video_offset_ms", offsetMs)
                         }
                     }
-                    if (plate.confidence > recent.confidence) {
-                        val (plateImg, snapImg) = saveEventImages(
-                            plate, nv21, width, height, rotationDegrees, now
-                        )
+                    db.update(TABLE_EVENTS, values, "id = ?", arrayOf(recent.id.toString()))
+                    return
+                }
+                needImages = true
+                matchedId = recent?.id
+            } catch (e: Exception) {
+                Log.e(TAG, "recordDetection pre-check failed: ${e.message}")
+                return
+            }
+        }
+
+        val (plateImg, snapImg) = if (needImages) {
+            saveEventImages(plate, nv21, width, height, rotationDegrees, now)
+        } else (null to null)
+
+        synchronized(dbLock) {
+            try {
+                val db = writableDatabase
+                val existing = matchedId?.let { id ->
+                    findRecentMatchingEvent(db, plate.code, now - DEDUP_WINDOW_MS)?.takeIf { it.id == id }
+                } ?: findRecentMatchingEvent(db, plate.code, now - DEDUP_WINDOW_MS)
+
+                if (existing != null) {
+                    val values = ContentValues().apply {
+                        put("last_seen_ms", now)
+                        if (existing.videoFile.isNullOrBlank() && !videoFile.isNullOrBlank()) {
+                            put("video_file", videoFile)
+                            put("video_offset_ms", offsetMs)
+                        }
+                    }
+                    if (plate.confidence > existing.confidence) {
                         values.put("plate_code", plate.code)
                         values.put("plate_type", plate.type)
                         values.put("confidence", plate.confidence.toDouble())
@@ -170,19 +199,19 @@ class PlateEventStore private constructor(context: Context) :
                         values.put("box_x2", nx2.toDouble())
                         values.put("box_y2", ny2.toDouble())
                         if (plateImg != null) {
-                            deleteSnapFile(recent.plateImgName)
+                            deleteSnapFile(existing.plateImgName)
                             values.put("plate_img", plateImg)
                         }
                         if (snapImg != null) {
-                            deleteSnapFile(recent.snapImgName)
+                            deleteSnapFile(existing.snapImgName)
                             values.put("snap_img", snapImg)
                         }
+                    } else {
+                        deleteSnapFile(plateImg)
+                        deleteSnapFile(snapImg)
                     }
-                    db.update(TABLE_EVENTS, values, "id = ?", arrayOf(recent.id.toString()))
+                    db.update(TABLE_EVENTS, values, "id = ?", arrayOf(existing.id.toString()))
                 } else {
-                    val (plateImg, snapImg) = saveEventImages(
-                        plate, nv21, width, height, rotationDegrees, now
-                    )
                     val values = ContentValues().apply {
                         put("plate_code", plate.code)
                         put("plate_type", plate.type)

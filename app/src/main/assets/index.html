@@ -2080,7 +2080,9 @@
       input.addEventListener('click', (e) => e.stopPropagation());
     })();
 
-    setInterval(checkRecordingStatus, 3000);
+    setInterval(() => {
+      if (!isPlaybackViewActive) checkRecordingStatus();
+    }, 3000);
     checkRecordingStatus();
 
     // ---- Push-to-talk: stream the browser microphone to the phone's speaker ----
@@ -2578,6 +2580,7 @@
       let tlZoomMs = 0;         // 0 = 全部时间范围
       let currentWallMs = 0;
       let isDraggingTl = false;
+      let lastPbCardKey = null;
 
       function getActiveVideo() { return activeSlot === 0 ? videoA : videoB; }
       function getStandbyVideo() { return activeSlot === 0 ? videoB : videoA; }
@@ -2626,8 +2629,16 @@
           loadSegmentsAndTimeline();
           loadEvents();
         } else {
-          try { videoA.pause(); } catch (_) {}
-          try { videoB.pause(); } catch (_) {}
+          [videoA, videoB].forEach(v => {
+            try {
+              v.pause();
+              v.removeAttribute('src');
+              v.load();
+            } catch (_) {}
+          });
+          currentSegIdx = -1;
+          preloadedSegIdx = -1;
+          lastPbCardKey = null;
           updatePlayPauseBtn();
           resumeLivePreview();
         }
@@ -2953,71 +2964,75 @@
           return wallMs >= start && wallMs <= end;
         });
 
-        // 1. 更新右侧回放车牌看板（沿用监控界面的大看板样式）
-        const cardEl = getElById('pb-alpr-card');
-        const titleEl = getElById('pb-alpr-title');
-        const typeEl = getElById('pb-alpr-type');
-        const confEl = getElById('pb-alpr-conf');
-        const plateEl = getElById('pb-alpr-plate');
-        const metaEl = getElById('pb-alpr-meta');
-        const extraEl = getElById('pb-alpr-extra-cards');
+        // 1. 更新右侧回放车牌看板（仅在激活车牌变化时重建 DOM，避免 timeupdate 频繁重排）
+        const pbCardKey = activeEvents.map(ev => `${ev.id}:${ev.plateCode}:${ev.confidence}`).join('|');
+        if (pbCardKey !== lastPbCardKey) {
+          lastPbCardKey = pbCardKey;
+          const cardEl = getElById('pb-alpr-card');
+          const titleEl = getElById('pb-alpr-title');
+          const typeEl = getElById('pb-alpr-type');
+          const confEl = getElById('pb-alpr-conf');
+          const plateEl = getElById('pb-alpr-plate');
+          const metaEl = getElById('pb-alpr-meta');
+          const extraEl = getElById('pb-alpr-extra-cards');
 
-        if (activeEvents.length > 0) {
-          const first = activeEvents[0];
-          const st = PLATE_TYPE_STYLES[first.plateType] || DEFAULT_PLATE_STYLE;
-          if (cardEl) { cardEl.style.background = st.bg; cardEl.style.borderLeftColor = st.border; }
-          if (titleEl) titleEl.style.color = st.title;
-          if (typeEl) {
-            typeEl.style.display = 'inline-block';
-            typeEl.innerText = st.label;
-            typeEl.style.background = st.badgeBg;
-            typeEl.style.color = st.badgeText;
-          }
-          if (confEl) {
-            confEl.style.color = st.meta;
-            confEl.innerText = `${Math.round((first.confidence || 0) * 100)}%`;
-          }
-          if (plateEl) {
-            plateEl.innerText = first.plateCode || '--';
-            plateEl.style.color = st.text;
-          }
-          if (metaEl) {
-            metaEl.style.color = st.meta;
-            metaEl.innerText = formatHms(first.eventTimeMs);
-          }
-
-          if (extraEl) {
-            extraEl.innerHTML = '';
-            for (let i = 1; i < activeEvents.length; i++) {
-              const ev = activeEvents[i];
-              const est = PLATE_TYPE_STYLES[ev.plateType] || DEFAULT_PLATE_STYLE;
-              const c = document.createElement('div');
-              c.className = 'setting-group';
-              c.style.marginBottom = '8px';
-              c.style.borderLeft = `4px solid ${est.border}`;
-              c.style.background = est.bg;
-              c.innerHTML = `
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                  <h3 style="color:${est.title};margin:0;font-size:13px;">回放画面车牌 #${i + 1}</h3>
-                  <span style="font-size:11px;padding:1px 6px;border-radius:4px;background:${est.badgeBg};color:${est.badgeText};">${est.label}</span>
-                </div>
-                <div style="display:flex;align-items:baseline;justify-content:space-between;">
-                  <span style="font-size:22px;font-weight:bold;letter-spacing:2px;color:${est.text};"></span>
-                  <span style="font-size:12px;color:${est.meta};">${Math.round((ev.confidence || 0) * 100)}% · ${formatHms(ev.eventTimeMs)}</span>
-                </div>
-              `;
-              c.querySelector('span[style*="font-size:22px"]').innerText = ev.plateCode || '--';
-              extraEl.appendChild(c);
+          if (activeEvents.length > 0) {
+            const first = activeEvents[0];
+            const st = PLATE_TYPE_STYLES[first.plateType] || DEFAULT_PLATE_STYLE;
+            if (cardEl) { cardEl.style.background = st.bg; cardEl.style.borderLeftColor = st.border; }
+            if (titleEl) titleEl.style.color = st.title;
+            if (typeEl) {
+              typeEl.style.display = 'inline-block';
+              typeEl.innerText = st.label;
+              typeEl.style.background = st.badgeBg;
+              typeEl.style.color = st.badgeText;
             }
+            if (confEl) {
+              confEl.style.color = st.meta;
+              confEl.innerText = `${Math.round((first.confidence || 0) * 100)}%`;
+            }
+            if (plateEl) {
+              plateEl.innerText = first.plateCode || '--';
+              plateEl.style.color = st.text;
+            }
+            if (metaEl) {
+              metaEl.style.color = st.meta;
+              metaEl.innerText = formatHms(first.eventTimeMs);
+            }
+
+            if (extraEl) {
+              extraEl.innerHTML = '';
+              for (let i = 1; i < activeEvents.length; i++) {
+                const ev = activeEvents[i];
+                const est = PLATE_TYPE_STYLES[ev.plateType] || DEFAULT_PLATE_STYLE;
+                const c = document.createElement('div');
+                c.className = 'setting-group';
+                c.style.marginBottom = '8px';
+                c.style.borderLeft = `4px solid ${est.border}`;
+                c.style.background = est.bg;
+                c.innerHTML = `
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                    <h3 style="color:${est.title};margin:0;font-size:13px;">回放画面车牌 #${i + 1}</h3>
+                    <span style="font-size:11px;padding:1px 6px;border-radius:4px;background:${est.badgeBg};color:${est.badgeText};">${est.label}</span>
+                  </div>
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;">
+                    <span style="font-size:22px;font-weight:bold;letter-spacing:2px;color:${est.text};"></span>
+                    <span style="font-size:12px;color:${est.meta};">${Math.round((ev.confidence || 0) * 100)}% · ${formatHms(ev.eventTimeMs)}</span>
+                  </div>
+                `;
+                c.querySelector('span[style*="font-size:22px"]').innerText = ev.plateCode || '--';
+                extraEl.appendChild(c);
+              }
+            }
+          } else {
+            if (cardEl) { cardEl.style.background = '#1e293b'; cardEl.style.borderLeftColor = '#38bdf8'; }
+            if (titleEl) titleEl.style.color = '#38bdf8';
+            if (typeEl) typeEl.style.display = 'none';
+            if (confEl) confEl.innerText = '';
+            if (plateEl) { plateEl.innerText = '等待过车...'; plateEl.style.color = '#94a3b8'; }
+            if (metaEl) metaEl.innerText = '';
+            if (extraEl) extraEl.innerHTML = '';
           }
-        } else {
-          if (cardEl) { cardEl.style.background = '#1e293b'; cardEl.style.borderLeftColor = '#38bdf8'; }
-          if (titleEl) titleEl.style.color = '#38bdf8';
-          if (typeEl) typeEl.style.display = 'none';
-          if (confEl) confEl.innerText = '';
-          if (plateEl) { plateEl.innerText = '等待过车...'; plateEl.style.color = '#94a3b8'; }
-          if (metaEl) metaEl.innerText = '';
-          if (extraEl) extraEl.innerHTML = '';
         }
 
         // 2. 在回放视频上绘制实时风格的车牌框与车牌文字
