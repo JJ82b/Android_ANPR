@@ -64,7 +64,11 @@ class StreamingServerHelper(
     private val onStreamingEnabledChanged: (Boolean) -> Unit = {},
     private val onPlateStatus: () -> String = { """{"plate":"","confidence":0,"time":0}""" },
     private val onAlprConfigGet: () -> String = { "{}" },
-    private val onAlprConfigSet: (Map<String, String>) -> String = { "{}" }
+    private val onAlprConfigSet: (Map<String, String>) -> String = { "{}" },
+    private val onLoopRecordingGet: () -> String = { "{}" },
+    private val onLoopRecordingSet: (Map<String, String>) -> String = { "{}" },
+    private val onPlateEventsQuery: (Map<String, String>) -> String = { """{"events":[]}""" },
+    private val onPlateEventImage: (String?) -> java.io.File? = { null }
 
 ) {
     data class Client(
@@ -775,6 +779,83 @@ class StreamingServerHelper(
                 writer.print("Connection: close\r\n\r\n")
                 writer.print(json)
                 writer.flush()
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+
+            if (path == "/api/recording/loop") {
+                val query = uri.substringAfter('?', "")
+                val json = if (httpMethod == "POST" || query.isNotBlank()) {
+                    val params = query.split('&')
+                        .mapNotNull { part ->
+                            val idx = part.indexOf('=')
+                            if (idx <= 0) null
+                            else {
+                                val k = java.net.URLDecoder.decode(part.substring(0, idx), "UTF-8")
+                                val v = java.net.URLDecoder.decode(part.substring(idx + 1), "UTF-8")
+                                k to v
+                            }
+                        }
+                        .toMap()
+                    if (params.isEmpty()) onLoopRecordingGet() else onLoopRecordingSet(params)
+                } else {
+                    onLoopRecordingGet()
+                }
+                writer.print("HTTP/1.1 200 OK\r\n")
+                writer.print("Content-Type: application/json; charset=utf-8\r\n")
+                writer.print("Cache-Control: no-cache\r\n")
+                writer.print("Connection: close\r\n\r\n")
+                writer.print(json)
+                writer.flush()
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+
+            if (path == "/api/events") {
+                val query = uri.substringAfter('?', "")
+                val params = if (query.isBlank()) emptyMap() else query.split('&')
+                    .mapNotNull { part ->
+                        val idx = part.indexOf('=')
+                        if (idx <= 0) null
+                        else {
+                            val k = java.net.URLDecoder.decode(part.substring(0, idx), "UTF-8")
+                            val v = java.net.URLDecoder.decode(part.substring(idx + 1), "UTF-8")
+                            k to v
+                        }
+                    }.toMap()
+                val json = onPlateEventsQuery(params)
+                writer.print("HTTP/1.1 200 OK\r\n")
+                writer.print("Content-Type: application/json; charset=utf-8\r\n")
+                writer.print("Cache-Control: no-cache\r\n")
+                writer.print("Connection: close\r\n\r\n")
+                writer.print(json)
+                writer.flush()
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+
+            if (path == "/api/events/image") {
+                val query = uri.substringAfter('?', "")
+                val fileName = query.split('&')
+                    .firstOrNull { it.startsWith("file=") }
+                    ?.substringAfter('=')
+                    ?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+                val imgFile = onPlateEventImage(fileName)
+                if (imgFile == null) {
+                    writer.print("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n")
+                    writer.flush()
+                    try { socket.close() } catch (_: Exception) {}
+                    return
+                }
+                val bytes = imgFile.readBytes()
+                writer.print("HTTP/1.1 200 OK\r\n")
+                writer.print("Content-Type: image/jpeg\r\n")
+                writer.print("Content-Length: ${bytes.size}\r\n")
+                writer.print("Cache-Control: max-age=86400\r\n")
+                writer.print("Connection: close\r\n\r\n")
+                writer.flush()
+                outputStream.write(bytes)
+                outputStream.flush()
                 try { socket.close() } catch (_: Exception) {}
                 return
             }

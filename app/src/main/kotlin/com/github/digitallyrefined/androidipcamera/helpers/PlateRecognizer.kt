@@ -100,6 +100,7 @@ class PlateRecognizer(context: Context) {
         private var customCore: HyperLPRCore? = null
         @Volatile private var currentRecThreshold: Float = DEFAULT_REC_CONF
         @Volatile private var currentIntervalMs: Long = DEFAULT_INTERVAL_MS
+        @Volatile var videoContextProvider: (() -> Pair<String?, Long>)? = null
 
         private fun defaultThreads(): Int =
             Runtime.getRuntime().availableProcessors().coerceIn(2, 4)
@@ -289,6 +290,12 @@ class PlateRecognizer(context: Context) {
                     latestPlateType = best.type
                     Log.i("ALPR", "识别到车牌(${detected.size}): ${best.code} type=${best.type} (${String.format("%.1f", best.confidence * 100)}%)")
                     onDetected?.invoke(best.code, best.confidence)
+
+                    val store = PlateEventStore.getInstance(appContext)
+                    val (videoFile, videoStartMs) = videoContextProvider?.invoke() ?: (null to 0L)
+                    for (p in detected) {
+                        store.recordDetection(p, frameCopy, width, height, rotationDegrees, videoFile, videoStartMs)
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("ALPR", "识别异常: ${e.message}")

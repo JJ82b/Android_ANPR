@@ -462,6 +462,27 @@
             <input type="number" id="timerInput" min="0" max="300" step="1" value="0"
               style="width:50px; padding:4px 6px; font-size:13px; text-align:center; background:#333; color:#fff; border:1px solid #555; border-radius:4px; margin:0;">
           </div>
+
+          <p class="group-title">24h 循环录像</p>
+          <button id="loopRecToggleBtn" type="button" class="btn btn-action" style="width:100%; margin-bottom:8px;">🔄 24h 循环录像: 已关闭</button>
+          <div style="display:flex; gap:8px; margin-bottom:6px;">
+            <div style="flex:1 1 0; min-width:0;">
+              <label for="loopSegMinutes">分段时长(分)</label>
+              <select id="loopSegMinutes" class="camera-select" style="margin-bottom:0;">
+                <option value="1">1 分钟</option>
+                <option value="3">3 分钟</option>
+                <option value="5" selected>5 分钟</option>
+                <option value="10">10 分钟</option>
+                <option value="15">15 分钟</option>
+                <option value="30">30 分钟</option>
+              </select>
+            </div>
+            <div style="flex:1 1 0; min-width:0;">
+              <label for="loopMaxStorageGb">容量上限(GB)</label>
+              <input id="loopMaxStorageGb" type="number" min="1" max="128" step="1" value="4" style="margin-bottom:0;">
+            </div>
+          </div>
+          <div id="loopRecMeta" style="font-size:12px; color:#94a3b8; margin-bottom:4px;">已录分段: -- · 已用: -- MB</div>
         </div>
 
         <p class="notice">Some changes will momentarily restart the camera.</p>
@@ -2153,6 +2174,54 @@
             });
         });
       }
+    })();
+
+    // ---- 24h 循环分段录像控制 ----
+    (function initLoopRecordingControls() {
+      const toggleBtn = getElById('loopRecToggleBtn');
+      const segEl = getElById('loopSegMinutes');
+      const maxGbEl = getElById('loopMaxStorageGb');
+      const metaEl = getElById('loopRecMeta');
+      if (!toggleBtn) return;
+
+      let loopEnabled = false;
+
+      function applyLoopState(st) {
+        if (!st || typeof st.enabled === 'undefined') return;
+        loopEnabled = Boolean(st.enabled);
+        toggleBtn.innerText = loopEnabled ? '🔴 24h 循环录像: 运行中 (点击停止)' : '🔄 24h 循环录像: 已关闭';
+        toggleBtn.style.background = loopEnabled ? '#b91c1c' : '';
+        if (segEl && st.segmentMinutes) segEl.value = String(st.segmentMinutes);
+        if (maxGbEl && st.maxStorageGb) maxGbEl.value = String(st.maxStorageGb);
+        if (metaEl) metaEl.innerText = `已录分段: ${st.fileCount ?? 0} · 已用: ${st.usedMb ?? 0} MB`;
+      }
+
+      function saveLoopConfig(nextEnabled) {
+        const qs = new URLSearchParams({
+          enabled: String(nextEnabled),
+          segmentMinutes: segEl ? segEl.value : '5',
+          maxStorageGb: maxGbEl ? maxGbEl.value : '4'
+        }).toString();
+        fetch(`/api/recording/loop?${qs}`, { method: 'POST', credentials: 'include', cache: 'no-store' })
+          .then(r => r.json())
+          .then(applyLoopState)
+          .catch(() => {});
+      }
+
+      toggleBtn.addEventListener('click', () => saveLoopConfig(!loopEnabled));
+      if (segEl) segEl.addEventListener('change', () => saveLoopConfig(loopEnabled));
+      if (maxGbEl) maxGbEl.addEventListener('change', () => saveLoopConfig(loopEnabled));
+
+      fetch('/api/recording/loop', { credentials: 'include', cache: 'no-store' })
+        .then(r => r.json())
+        .then(applyLoopState)
+        .catch(() => {});
+      setInterval(() => {
+        fetch('/api/recording/loop', { credentials: 'include', cache: 'no-store' })
+          .then(r => r.json())
+          .then(applyLoopState)
+          .catch(() => {});
+      }, 15000);
     })();
     
   </script>

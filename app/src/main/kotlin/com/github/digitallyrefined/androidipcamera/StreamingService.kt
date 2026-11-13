@@ -95,6 +95,8 @@ class StreamingService : LifecycleService() {
      *  session-bound torch, a setTorchMode torch survives process death. */
     @Volatile private var deviceTorchOn = false
     @Volatile private var localRecorder: LocalRecorder? = null
+    private var loopRecordingJob: kotlinx.coroutines.Job? = null
+    private val loopRotateLock = Any()
     /** Smaller encoder feeding the RTSP sub stream (/live/sub) while it has viewers. */
     @Volatile private var subEncoder: H264HardwareEncoder? = null
 
@@ -243,6 +245,8 @@ class StreamingService : LifecycleService() {
         super.onDestroy()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             try { unregisterReceiver(notificationChannelReceiver) } catch (_: Exception) {}
+        loopRecordingJob?.cancel()
+        loopRecordingJob = null
         safeStopRecording()
         // The service is going away, so the torch has nothing left to keep the camera open for;
         // clearing this first stops the guard in stopCamera() from leaking the session.
@@ -458,8 +462,28 @@ class StreamingService : LifecycleService() {
                     val saved = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.saveConfig(this, updated)
                     (backend as? com.github.digitallyrefined.androidipcamera.helpers.CameraXCapture)?.plateRecognizer?.reloadConfig(saved)
                     saved.toJson()
+                },
+                onLoopRecordingGet = {
+                    loopRecordingStatusJson()
+                },
+                onLoopRecordingSet = { params ->
+                    handleLoopRecordingConfig(params)
+                },
+                onPlateEventsQuery = { params ->
+                    com.github.digitallyrefined.androidipcamera.helpers.PlateEventStore.getInstance(this).queryEventsJson(
+                        query = params["q"],
+                        plateType = params["type"]?.toIntOrNull(),
+                        limit = params["limit"]?.toIntOrNull() ?: 50,
+                        offset = params["offset"]?.toIntOrNull() ?: 0
+                    )
+                },
+                onPlateEventImage = { fileName ->
+                    com.github.digitallyrefined.androidipcamera.helpers.PlateEventStore.getInstance(this).getImageFile(fileName)
                 }
             )
+            com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.videoContextProvider = {
+                localRecorder?.let { it.currentFileName to it.recordingStartTimeMs } ?: (null to 0L)
+            }
             // Initialize encoders with the streaming server helper
             h264StreamingEncoder = H264StreamingEncoder(this, streamingServerHelper!!) { Log.i(TAG, "H264: $it"); onLog?.invoke(it) }
             mjpegStreamingEncoder = MjpegStreamingEncoder(this, streamingServerHelper!!) { Log.i(TAG, "MJPEG: $it"); onLog?.invoke(it) }
@@ -491,6 +515,7 @@ class StreamingService : LifecycleService() {
         startOnvifIfEnabled()
         // Motion detection persisted as on keeps the camera running with no viewer.
         if (motionEnabled()) launchMain { startCameraIfNeeded() }
+        if (isLoopRecordingEnabled()) startLoopRecording()
     }
 
     /** Starts (or stops) the RTSP server to match the RTSP/ONVIF setting. ONVIF is enabled by the
@@ -1888,6 +1913,129 @@ class StreamingService : LifecycleService() {
     fun getRecordingStatus(): String {
         return localRecorder?.statusJson()
             ?: """{"recording":false}"""
+    }
+
+    private fun isLoopRecordingEnabled(): Boolean =
+        PreferenceManager.getDefaultSharedPreferences(this).getBoolean("loop_recording_enabled", false)
+
+    private fun loopSegmentMinutes(): Int =
+        PreferenceManager.getDefaultSharedPreferences(this).getInt("loop_segment_minutes", 5).coerceIn(1, 30)
+
+    private fun loopMaxStorageGb(): Int =
+        PreferenceManager.getDefaultSharedPreferences(this).getInt("loop_max_storage_gb", 4).coerceIn(1, 128)
+
+    private fun loopRecordingStatusJson(): String {
+        val files = try { RecordingsHelper.list(this) } catch (_: Exception) { emptyList() }
+        val usedMb = files.sumOf { it.sizeBytes } / (1024L * 1024L)
+        return org.json.JSONObject().apply {
+            put("enabled", isLoopRecordingEnabled())
+            put("segmentMinutes", loopSegmentMinutes())
+            put("maxStorageGb", loopMaxStorageGb())
+            put("recording", localRecorder?.isRecording == true)
+            put("fileCount", files.size)
+            put("usedMb", usedMb)
+        }.toString()
+    }
+
+    private fun handleLoopRecordingConfig(params: Map<String, String>): String {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val wasEnabled = isLoopRecordingEnabled()
+        val enabled = params["enabled"]?.let { it == "true" || it == "1" } ?: wasEnabled
+        val segmentMinutes = params["segmentMinutes"]?.toIntOrNull()?.coerceIn(1, 30) ?: loopSegmentMinutes()
+        val maxStorageGb = params["maxStorageGb"]?.toIntOrNull()?.coerceIn(1, 128) ?: loopMaxStorageGb()
+        prefs.edit()
+            .putBoolean("loop_recording_enabled", enabled)
+            .putInt("loop_segment_minutes", segmentMinutes)
+            .putInt("loop_max_storage_gb", maxStorageGb)
+            .apply()
+
+        if (enabled) {
+            startLoopRecording()
+        } else {
+            stopLoopRecording(stopActiveRecorder = wasEnabled)
+        }
+        return loopRecordingStatusJson()
+    }
+
+    private fun startLoopRecording() {
+        if (loopRecordingJob?.isActive == true) return
+        loopRecordingJob = lifecycleScope.launch(Dispatchers.IO) {
+            Log.i(TAG, "Loop recording started (segment=${loopSegmentMinutes()}m, max=${loopMaxStorageGb()}GB)")
+            pruneOldRecordings()
+            while (isActive && isLoopRecordingEnabled()) {
+                if (localRecorder?.isRecording != true) {
+                    val res = startRecording()
+                    if (!res.first) {
+                        Log.w(TAG, "Loop recording start attempt failed: ${res.third}; retrying in 5s")
+                        kotlinx.coroutines.delay(5000)
+                        continue
+                    }
+                }
+                val segMs = loopSegmentMinutes() * 60_000L
+                val startedAt = localRecorder?.recordingStartTimeMs ?: System.currentTimeMillis()
+                if (System.currentTimeMillis() - startedAt >= segMs) {
+                    rotateRecordingSegment()
+                    pruneOldRecordings()
+                }
+                kotlinx.coroutines.delay(5000)
+            }
+        }
+    }
+
+    private fun stopLoopRecording(stopActiveRecorder: Boolean) {
+        loopRecordingJob?.cancel()
+        loopRecordingJob = null
+        if (stopActiveRecorder && localRecorder?.isRecording == true) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                stopRecording()
+            }
+        }
+        Log.i(TAG, "Loop recording stopped")
+    }
+
+    private fun rotateRecordingSegment() {
+        synchronized(loopRotateLock) {
+            val enc = h264StreamingEncoder?.h264HardwareEncoder ?: return
+            val oldRecorder = localRecorder ?: return
+            try {
+                val newRecorder = LocalRecorder(this, enc.width, enc.height)
+                newRecorder.start()
+                enc.onRecordFrame = { bytes, isKey, pts -> newRecorder.feedFrame(bytes, isKey, pts) }
+                enc.requestKeyFrame()
+                localRecorder = newRecorder
+                oldRecorder.stop()
+                Log.i(TAG, "Rotated recording segment -> ${newRecorder.currentFileName}")
+            } catch (e: Exception) {
+                Log.e(TAG, "rotateRecordingSegment failed: ${e.message}")
+            }
+        }
+    }
+
+    private fun pruneOldRecordings() {
+        try {
+            val activeName = localRecorder?.currentFileName
+            val maxBytes = loopMaxStorageGb().toLong() * 1024L * 1024L * 1024L
+            val minFreeBytes = 512L * 1024L * 1024L // 至少保留 512MB 系统可用空间
+            val files = RecordingsHelper.list(this)
+                .filter { it.name != activeName }
+                .sortedBy { it.lastModifiedMs } // 最旧的排在前面
+
+            var totalBytes = files.sumOf { it.sizeBytes }
+            val stat = android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path)
+            var freeBytes = stat.availableBytes
+
+            for (file in files) {
+                if (totalBytes <= maxBytes && freeBytes >= minFreeBytes) break
+                if (RecordingsHelper.delete(this, file.name) == RecordingsHelper.DeleteResult.DELETED) {
+                    totalBytes -= file.sizeBytes
+                    freeBytes += file.sizeBytes
+                    com.github.digitallyrefined.androidipcamera.helpers.PlateEventStore.getInstance(this).deleteEventsForVideo(file.name)
+                    Log.i(TAG, "Loop prune deleted old segment: ${file.name} (${file.sizeBytes / 1024}KB)")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "pruneOldRecordings failed: ${e.message}")
+        }
     }
 
     /**

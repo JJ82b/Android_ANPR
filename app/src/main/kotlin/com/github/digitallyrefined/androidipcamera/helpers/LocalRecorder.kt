@@ -49,6 +49,8 @@ class LocalRecorder(
         private set
     @Volatile var recordingStartTimeMs: Long = 0L
         private set
+    @Volatile var currentFileName: String? = null
+        private set
 
     // --- Muxer state (guarded by muxerLock) ---
     private val muxerLock = Any()
@@ -80,6 +82,7 @@ class LocalRecorder(
             firstPtsUs = Long.MIN_VALUE
             lastPtsUs = -1L
             val filename = generateFilename()
+            currentFileName = filename
 
             try {
                 val customFolder = RecordingsHelper.customRoot(context)
