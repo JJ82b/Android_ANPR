@@ -2,135 +2,137 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <PreferenceCategory
-        android:title="Authentication">
+        android:title="@string/pref_cat_auth">
         <CheckBoxPreference
             android:key="enable_auth"
-            android:title="Enable Authentication"
-            android:summary="Require username/password to access the stream"
+            android:title="@string/pref_enable_auth_title"
+            android:summary="@string/pref_enable_auth_summary"
             android:defaultValue="true" />
         <EditTextPreference
             android:key="username"
-            android:title="Username"
+            android:title="@string/pref_username_title"
             android:defaultValue=""
             android:singleLine="true" />
         <EditTextPreference
             android:key="password"
-            android:title="Password"
+            android:title="@string/pref_password_title"
             android:defaultValue=""
             android:inputType="textPassword"
             android:singleLine="true" />
     </PreferenceCategory>
 
     <PreferenceCategory
-        android:title="Startup">
+        android:title="@string/pref_cat_startup">
         <CheckBoxPreference
             android:key="start_on_boot"
-            android:title="Start on Boot"
-            android:summary="Start the camera server automatically after the device restarts"
+            android:title="@string/pref_start_on_boot_title"
+            android:summary="@string/pref_start_on_boot_summary"
             android:defaultValue="false" />
         <EditTextPreference
             android:key="server_port"
-            android:title="Streaming Port"
-            android:summary="Port for the streaming server (default: 4444)"
+            android:title="@string/pref_server_port_title"
+            android:summary="@string/pref_server_port_summary"
             android:defaultValue="4444"
             android:inputType="number"
             android:singleLine="true" />
         <ListPreference
             android:key="listen_interface"
-            android:title="Listen Interface"
-            android:summary="Interface all servers listen on (default: all interfaces)"
+            android:title="@string/pref_listen_interface_title"
+            android:summary="@string/pref_listen_interface_summary"
             android:defaultValue="0.0.0.0" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="RTSP / ONVIF">
+    <PreferenceCategory android:title="@string/pref_cat_rtsp_onvif">
         <CheckBoxPreference
             android:key="rtsp_enabled"
-            android:title="Enable RTSP"
+            android:title="@string/pref_rtsp_enabled_title"
             android:defaultValue="false" />
         <EditTextPreference
             android:key="rtsp_port"
-            android:title="RTSP Port"
-            android:summary="Port for the RTSP server (default: 8554)"
+            android:title="@string/pref_rtsp_port_title"
+            android:summary="@string/pref_rtsp_port_summary"
             android:defaultValue="8554"
             android:inputType="number"
             android:singleLine="true" />
         <CheckBoxPreference
             android:key="rtsp_audio"
-            android:title="Include Audio"
-            android:summary="Add the microphone to the RTSP stream as an AAC audio track (requires the microphone permission)"
+            android:title="@string/pref_rtsp_audio_title"
+            android:summary="@string/pref_rtsp_audio_summary"
             android:defaultValue="true" />
         <ListPreference
             android:key="rtsp_sub_size"
-            android:title="Sub Stream Resolution"
+            android:title="@string/pref_rtsp_sub_size_title"
             android:defaultValue="360"
             android:entries="@array/rtsp_sub_size_entries"
             android:entryValues="@array/rtsp_sub_size_values" />
         <ListPreference
             android:key="rtsp_sub_fps"
-            android:title="Sub Stream Frame Rate"
+            android:title="@string/pref_rtsp_sub_fps_title"
             android:defaultValue="15"
             android:entries="@array/rtsp_sub_fps_entries"
             android:entryValues="@array/rtsp_sub_fps_values" />
         <ListPreference
             android:key="rtsp_sub_bitrate"
-            android:title="Sub Stream Bitrate"
+            android:title="@string/pref_rtsp_sub_bitrate_title"
             android:defaultValue="500"
             android:entries="@array/rtsp_sub_bitrate_entries"
             android:entryValues="@array/rtsp_sub_bitrate_values" />
         <EditTextPreference
             android:key="onvif_name"
-            android:title="ONVIF Camera Name"
-            android:summary="Name shown to ONVIF clients (default: device model)"
+            android:title="@string/pref_onvif_name_title"
+            android:summary="@string/pref_onvif_name_summary"
             android:defaultValue=""
             android:singleLine="true" />
         <EditTextPreference
             android:key="onvif_port"
-            android:title="ONVIF Port"
-            android:summary="Port for the ONVIF service (default: 8000)"
+            android:title="@string/pref_onvif_port_title"
+            android:summary="@string/pref_onvif_port_summary"
             android:defaultValue="8000"
             android:inputType="number"
             android:singleLine="true" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Recording">
+    <PreferenceCategory android:title="@string/pref_cat_recording">
         <Preference
             android:key="recording_storage_uri"
-            android:title="Recording Storage Location"
-            android:summary="Recordings are saved to Movies/AndroidIPCamera on the internal storage. Tap to pick a different folder, for example on an SD card."
+            android:title="@string/pref_recording_storage_uri_title"
+            android:summary="@string/pref_recording_storage_uri_summary"
             android:persistent="true" />
         <Preference
             android:key="reset_recording_storage"
-            android:title="Reset to Default Location"
-            android:summary="Save recordings back to Movies/AndroidIPCamera"
+            android:title="@string/pref_reset_recording_storage_title"
+            android:summary="@string/pref_reset_recording_storage_summary"
             android:persistent="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Certificate Settings">
+    <PreferenceCategory android:title="@string/pref_cat_cert">
         <CheckBoxPreference
             android:key="tls_enabled"
-            android:title="Enable TLS/HTTPS"
-            android:summary="Use the same certificate for the web server, RTSPS, and ONVIF endpoints"
+            android:title="@string/pref_tls_enabled_title"
+            android:summary="@string/pref_tls_enabled_summary"
             android:defaultValue="true" />
         <ListPreference
             android:key="tls_version"
-            android:title="TLS Version"
-            android:summary="Automatically use the newest platform TLS or force TLS 1.2"
+            android:title="@string/pref_tls_version_title"
+            android:summary="@string/pref_tls_version_summary"
             android:defaultValue="1.3"
             android:entries="@array/tls_version_entries"
             android:entryValues="@array/tls_version_values" />
         <Preference
             android:key="certificate_path"
-            android:title="Custom TLS Certificate" android:summary="Select your own certificate" android:persistent="true" />
+            android:title="@string/pref_certificate_path_title"
+            android:summary="@string/pref_certificate_path_summary"
+            android:persistent="true" />
         <EditTextPreference
             android:key="certificate_password"
-            android:title="Certificate Password"
-            android:summary="Optional password for the TLS certificate"
+            android:title="@string/pref_certificate_password_title"
+            android:summary="@string/pref_certificate_password_summary"
             android:persistent="true"
             android:inputType="textPassword" />
         <Preference
             android:key="test_certificate"
-            android:title="Test Certificate Setup"
-            android:summary="Validate your certificate configuration"
+            android:title="@string/pref_test_certificate_title"
+            android:summary="@string/pref_test_certificate_summary"
             android:persistent="false" />
     </PreferenceCategory>
 </PreferenceScreen>

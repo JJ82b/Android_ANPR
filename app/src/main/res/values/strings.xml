@@ -47,4 +47,51 @@
         <item>30</item>
     </string-array>
     <string name="streaming_active">🔴 Streaming active</string>
+
+    <!-- Preferences (Default English) -->
+    <string name="pref_cat_auth">Authentication</string>
+    <string name="pref_enable_auth_title">Enable Authentication</string>
+    <string name="pref_enable_auth_summary">Require username/password to access the stream</string>
+    <string name="pref_username_title">Username</string>
+    <string name="pref_password_title">Password</string>
+
+    <string name="pref_cat_startup">Startup</string>
+    <string name="pref_start_on_boot_title">Start on Boot</string>
+    <string name="pref_start_on_boot_summary">Start the camera server automatically after the device restarts</string>
+    <string name="pref_server_port_title">Streaming Port</string>
+    <string name="pref_server_port_summary">Port for the streaming server (default: 4444)</string>
+    <string name="pref_listen_interface_title">Listen Interface</string>
+    <string name="pref_listen_interface_summary">Interface all servers listen on (default: all interfaces)</string>
+
+    <string name="pref_cat_rtsp_onvif">RTSP / ONVIF</string>
+    <string name="pref_rtsp_enabled_title">Enable RTSP</string>
+    <string name="pref_rtsp_port_title">RTSP Port</string>
+    <string name="pref_rtsp_port_summary">Port for the RTSP server (default: 8554)</string>
+    <string name="pref_rtsp_audio_title">Include Audio</string>
+    <string name="pref_rtsp_audio_summary">Add the microphone to the RTSP stream as an AAC audio track (requires the microphone permission)</string>
+    <string name="pref_rtsp_sub_size_title">Sub Stream Resolution</string>
+    <string name="pref_rtsp_sub_fps_title">Sub Stream Frame Rate</string>
+    <string name="pref_rtsp_sub_bitrate_title">Sub Stream Bitrate</string>
+    <string name="pref_onvif_name_title">ONVIF Camera Name</string>
+    <string name="pref_onvif_name_summary">Name shown to ONVIF clients (default: device model)</string>
+    <string name="pref_onvif_port_title">ONVIF Port</string>
+    <string name="pref_onvif_port_summary">Port for the ONVIF service (default: 8000)</string>
+
+    <string name="pref_cat_recording">Recording</string>
+    <string name="pref_recording_storage_uri_title">Recording Storage Location</string>
+    <string name="pref_recording_storage_uri_summary">Recordings are saved to Movies/AndroidIPCamera on the internal storage. Tap to pick a different folder, for example on an SD card.</string>
+    <string name="pref_reset_recording_storage_title">Reset to Default Location</string>
+    <string name="pref_reset_recording_storage_summary">Save recordings back to Movies/AndroidIPCamera</string>
+
+    <string name="pref_cat_cert">Certificate Settings</string>
+    <string name="pref_tls_enabled_title">Enable TLS/HTTPS</string>
+    <string name="pref_tls_enabled_summary">Use the same certificate for the web server, RTSPS, and ONVIF endpoints</string>
+    <string name="pref_tls_version_title">TLS Version</string>
+    <string name="pref_tls_version_summary">Automatically use the newest platform TLS or force TLS 1.2</string>
+    <string name="pref_certificate_path_title">Custom TLS Certificate</string>
+    <string name="pref_certificate_path_summary">Select your own certificate</string>
+    <string name="pref_certificate_password_title">Certificate Password</string>
+    <string name="pref_certificate_password_summary">Optional password for the TLS certificate</string>
+    <string name="pref_test_certificate_title">Test Certificate Setup</string>
+    <string name="pref_test_certificate_summary">Validate your certificate configuration</string>
 </resources>
