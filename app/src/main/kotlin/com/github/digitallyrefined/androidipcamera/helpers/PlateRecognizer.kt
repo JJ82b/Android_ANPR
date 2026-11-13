@@ -71,6 +71,10 @@ class PlateRecognizer(context: Context) {
     @Volatile
     var latestFrameHeight: Int = 0
         private set
+
+    @Volatile
+    var latestProcessTimeMs: Long = 0
+        private set
     
     private val isProcessing = AtomicBoolean(false)
     private var lastRunTimeMs = 0L
@@ -235,6 +239,7 @@ class PlateRecognizer(context: Context) {
                 }
 
                 if (!sdkInitialized) return@execute
+                val startNs = System.nanoTime()
                 val activeCore = customCore
                 val plates = if (activeCore != null) {
                     activeCore.plateRecognitionFromBuffer(
@@ -253,6 +258,7 @@ class PlateRecognizer(context: Context) {
                         HyperLPR3.STREAM_YUV_NV21
                     )
                 }
+                latestProcessTimeMs = (System.nanoTime() - startNs) / 1_000_000L
 
                 val minRecConf = currentRecThreshold
                 val rotatedW = if (rotationDegrees == 90 || rotationDegrees == 270) height else width

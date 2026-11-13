@@ -417,6 +417,7 @@ class StreamingService : LifecycleService() {
                     val type = recognizer?.latestPlateType ?: com.hyperai.hyperlpr3.HyperLPR3.PLATE_TYPE_UNKNOWN
                     val fw = recognizer?.latestFrameWidth ?: 0
                     val fh = recognizer?.latestFrameHeight ?: 0
+                    val processTimeMs = recognizer?.latestProcessTimeMs ?: 0L
                     val plates = recognizer?.latestPlates ?: emptyList()
                     org.json.JSONObject().apply {
                         put("plate", plate)
@@ -425,6 +426,7 @@ class StreamingService : LifecycleService() {
                         put("type", type)
                         put("frameWidth", fw)
                         put("frameHeight", fh)
+                        put("processTimeMs", processTimeMs)
                         put("plates", org.json.JSONArray().apply {
                             for (p in plates) {
                                 put(org.json.JSONObject().apply {

@@ -304,7 +304,10 @@
               <h3 id="alpr-title" style="color: #38bdf8; margin: 0;">ALPR 车牌识别</h3>
               <span id="alpr-type" style="display: none; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.16); color: #e2e8f0;"></span>
             </div>
-            <button id="alpr-adv-toggle" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;">高级选项 ▾</button>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span id="alpr-latency" style="font-size: 11px; color: #94a3b8;">--ms</span>
+              <button id="alpr-adv-toggle" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;">高级选项 ▾</button>
+            </div>
           </div>
           <div style="display: flex; align-items: baseline; justify-content: space-between;">
             <span id="alpr-plate" style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #fff;">等待检测...</span>
@@ -2033,6 +2036,10 @@
         .then(r => r.json())
         .then(data => {
           renderPlateOverlay(data.plates || [], data.frameWidth || 0, data.frameHeight || 0);
+          const latencyEl = getElById('alpr-latency');
+          if (latencyEl && data.processTimeMs > 0) {
+            latencyEl.innerText = `${data.processTimeMs}ms`;
+          }
           if (data.plate && data.time !== lastPlateTs) {
             lastPlateTs = data.time;
             const cardEl = getElById('alpr-card');
@@ -2046,6 +2053,7 @@
               cardEl.style.borderLeftColor = style.border;
             }
             if (titleEl) titleEl.style.color = style.title;
+            if (latencyEl) latencyEl.style.color = style.meta;
             if (typeEl) {
               typeEl.style.display = 'inline-block';
               typeEl.innerText = style.label;
