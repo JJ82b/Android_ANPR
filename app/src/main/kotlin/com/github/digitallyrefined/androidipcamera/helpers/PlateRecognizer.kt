@@ -9,6 +9,16 @@ import com.hyperai.hyperlpr3.core.HyperLPRCore
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
+data class DetectedPlate(
+    val code: String,
+    val confidence: Float,
+    val type: Int,
+    val x1: Float,
+    val y1: Float,
+    val x2: Float,
+    val y2: Float
+)
+
 data class AlprConfig(
     val detLevel: Int,
     val maxNum: Int,
@@ -48,6 +58,18 @@ class PlateRecognizer(context: Context) {
 
     @Volatile
     var latestPlateType: Int = HyperLPR3.PLATE_TYPE_UNKNOWN
+        private set
+
+    @Volatile
+    var latestPlates: List<DetectedPlate> = emptyList()
+        private set
+
+    @Volatile
+    var latestFrameWidth: Int = 0
+        private set
+
+    @Volatile
+    var latestFrameHeight: Int = 0
         private set
     
     private val isProcessing = AtomicBoolean(false)
@@ -233,16 +255,34 @@ class PlateRecognizer(context: Context) {
                 }
 
                 val minRecConf = currentRecThreshold
-                if (!plates.isNullOrEmpty()) {
-                    val best = plates.maxByOrNull { it.confidence }
-                    if (best != null && best.confidence >= minRecConf && best.code.isNotBlank()) {
-                        latestPlate = best.code
-                        latestConfidence = best.confidence
-                        latestTimestamp = System.currentTimeMillis()
-                        latestPlateType = best.type
-                        Log.i("ALPR", "识别到车牌: ${best.code} type=${best.type} (${String.format("%.1f", best.confidence * 100)}%)")
-                        onDetected?.invoke(best.code, best.confidence)
+                val rotatedW = if (rotationDegrees == 90 || rotationDegrees == 270) height else width
+                val rotatedH = if (rotationDegrees == 90 || rotationDegrees == 270) width else height
+                val detected = (plates ?: emptyArray())
+                    .filter { it != null && it.confidence >= minRecConf && it.code.isNotBlank() }
+                    .sortedByDescending { it.confidence }
+                    .map {
+                        DetectedPlate(
+                            code = it.code,
+                            confidence = it.confidence,
+                            type = it.type,
+                            x1 = it.x1,
+                            y1 = it.y1,
+                            x2 = it.x2,
+                            y2 = it.y2
+                        )
                     }
+                latestFrameWidth = rotatedW
+                latestFrameHeight = rotatedH
+                latestPlates = detected
+
+                if (detected.isNotEmpty()) {
+                    val best = detected.first()
+                    latestPlate = best.code
+                    latestConfidence = best.confidence
+                    latestTimestamp = System.currentTimeMillis()
+                    latestPlateType = best.type
+                    Log.i("ALPR", "识别到车牌(${detected.size}): ${best.code} type=${best.type} (${String.format("%.1f", best.confidence * 100)}%)")
+                    onDetected?.invoke(best.code, best.confidence)
                 }
             } catch (e: Exception) {
                 Log.e("ALPR", "识别异常: ${e.message}")

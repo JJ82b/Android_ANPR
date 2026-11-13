@@ -415,7 +415,30 @@ class StreamingService : LifecycleService() {
                     val conf = recognizer?.latestConfidence ?: 0f
                     val ts = recognizer?.latestTimestamp ?: 0L
                     val type = recognizer?.latestPlateType ?: com.hyperai.hyperlpr3.HyperLPR3.PLATE_TYPE_UNKNOWN
-                    """{"plate":"$plate","confidence":$conf,"time":$ts,"type":$type}"""
+                    val fw = recognizer?.latestFrameWidth ?: 0
+                    val fh = recognizer?.latestFrameHeight ?: 0
+                    val plates = recognizer?.latestPlates ?: emptyList()
+                    org.json.JSONObject().apply {
+                        put("plate", plate)
+                        put("confidence", conf.toDouble())
+                        put("time", ts)
+                        put("type", type)
+                        put("frameWidth", fw)
+                        put("frameHeight", fh)
+                        put("plates", org.json.JSONArray().apply {
+                            for (p in plates) {
+                                put(org.json.JSONObject().apply {
+                                    put("code", p.code)
+                                    put("confidence", p.confidence.toDouble())
+                                    put("type", p.type)
+                                    put("x1", p.x1.toDouble())
+                                    put("y1", p.y1.toDouble())
+                                    put("x2", p.x2.toDouble())
+                                    put("y2", p.y2.toDouble())
+                                })
+                            }
+                        })
+                    }.toString()
                 },
                 onAlprConfigGet = {
                     com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this).toJson()

@@ -286,6 +286,7 @@
       </div>
       <div id="streamLoading" class="stream-loading">Loading...</div>
       <canvas id='streamCanvas'></canvas>
+      <canvas id='alprOverlayCanvas' style='position:absolute; inset:0; pointer-events:none; z-index:5;'></canvas>
       <audio id="audioEl" preload="none" muted></audio>
     </div>
 
@@ -337,6 +338,7 @@
             </div>
           </div>
         </div>
+        <div id="alpr-extra-cards"></div>
 
         <div class='setting-group'>
           <h3>Settings</h3>
@@ -512,11 +514,18 @@
       }
     }
 
+    let lastVideoRect = null;
+
     function applyCanvasSize(size) {
       if (!size) return;
       if (streamCanvas.width !== size.w || streamCanvas.height !== size.h) {
         streamCanvas.width = size.w;
         streamCanvas.height = size.h;
+      }
+      const overlay = getElById('alprOverlayCanvas');
+      if (overlay && (overlay.width !== size.w || overlay.height !== size.h)) {
+        overlay.width = size.w;
+        overlay.height = size.h;
       }
     }
 
@@ -901,6 +910,7 @@
               const dh = Math.max(1, Math.floor(ih * scale));
               const dx = Math.floor((w - dw) / 2);
               const dy = Math.floor((h - dh) / 2);
+              lastVideoRect = { dx, dy, dw, dh };
               ctx.clearRect(0, 0, w, h);
               ctx.drawImage(candidate.bmp, dx, dy, dw, dh);
               lastDrawn = candidate.bmp;
@@ -1073,8 +1083,13 @@
               const size = targetCanvasSize({ width: fw, height: fh });
               applyCanvasSize(size);
               const s = Math.min(size.w / fw, size.h / fh) * getUserScale();
+              const dw = fw * s;
+              const dh = fh * s;
+              const dx = (size.w - dw) / 2;
+              const dy = (size.h - dh) / 2;
+              lastVideoRect = { dx, dy, dw, dh };
               ctx.clearRect(0, 0, size.w, size.h);
-              ctx.drawImage(frame, (size.w - fw * s) / 2, (size.h - fh * s) / 2, fw * s, fh * s);
+              ctx.drawImage(frame, dx, dy, dw, dh);
             }
             ctx.filter = 'none';
             hideStreamLoading();
@@ -1938,11 +1953,86 @@
     };
     const DEFAULT_PLATE_STYLE = { label: '未知类型', bg: '#1e293b', border: '#38bdf8', title: '#38bdf8', text: '#ffffff', meta: '#cbd5e1', badgeBg: 'rgba(255,255,255,0.16)', badgeText: '#e2e8f0' };
 
+    function renderPlateOverlay(plates, frameW, frameH) {
+      const overlay = getElById('alprOverlayCanvas');
+      if (!overlay) return;
+      const ctx = overlay.getContext('2d');
+      if (!ctx) return;
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      if (!plates || !plates.length || !lastVideoRect || !frameW || !frameH) return;
+
+      for (const p of plates) {
+        const rx1 = lastVideoRect.dx + (p.x1 / frameW) * lastVideoRect.dw;
+        const ry1 = lastVideoRect.dy + (p.y1 / frameH) * lastVideoRect.dh;
+        const rw = ((p.x2 - p.x1) / frameW) * lastVideoRect.dw;
+        const rh = ((p.y2 - p.y1) / frameH) * lastVideoRect.dh;
+        if (rw <= 1 || rh <= 1) continue;
+
+        const style = PLATE_TYPE_STYLES[p.type] || DEFAULT_PLATE_STYLE;
+        ctx.strokeStyle = style.border;
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(rx1, ry1, rw, rh);
+
+        const label = p.code || '';
+        if (label) {
+          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, sans-serif';
+          const padX = 5;
+          const labelH = 18;
+          const labelW = ctx.measureText(label).width + padX * 2;
+          const labelX = Math.max(2, Math.min(overlay.width - labelW - 2, rx1));
+          const labelY = ry1 - labelH - 3 >= 2 ? ry1 - labelH - 3 : ry1 + 2;
+
+          ctx.fillStyle = style.bg;
+          ctx.fillRect(labelX, labelY, labelW, labelH);
+          ctx.strokeStyle = style.border;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(labelX, labelY, labelW, labelH);
+          ctx.fillStyle = style.text;
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, labelX + padX, labelY + labelH / 2);
+        }
+      }
+    }
+
+    function renderExtraPlateCards(plates, ts) {
+      const container = getElById('alpr-extra-cards');
+      if (!container) return;
+      if (!plates || plates.length < 2) {
+        container.innerHTML = '';
+        return;
+      }
+      const timeStr = ts ? new Date(ts).toLocaleTimeString() : '';
+      container.innerHTML = '';
+      for (let i = 1; i < plates.length; i++) {
+        const p = plates[i];
+        const style = PLATE_TYPE_STYLES[p.type] || DEFAULT_PLATE_STYLE;
+        const pct = (p.confidence * 100).toFixed(1);
+        const card = document.createElement('div');
+        card.className = 'setting-group';
+        card.style.borderLeft = `4px solid ${style.border}`;
+        card.style.background = style.bg;
+        card.style.transition = 'background-color 0.25s ease, border-color 0.25s ease';
+        card.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <h3 style="color: ${style.title}; margin: 0;">ALPR 车牌识别 #${i + 1}</h3>
+            <span style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: ${style.badgeBg}; color: ${style.badgeText};">${style.label}</span>
+          </div>
+          <div style="display: flex; align-items: baseline; justify-content: space-between;">
+            <span style="font-size: 22px; font-weight: bold; letter-spacing: 2px; color: ${style.text};"></span>
+            <span style="font-size: 12px; color: ${style.meta};">${pct}% · ${timeStr}</span>
+          </div>
+        `;
+        card.querySelector('span[style*="font-size: 22px"]').innerText = p.code;
+        container.appendChild(card);
+      }
+    }
+
     let lastPlateTs = 0;
     setInterval(() => {
       fetch('/api/plate', { credentials: 'include', cache: 'no-store' })
         .then(r => r.json())
         .then(data => {
+          renderPlateOverlay(data.plates || [], data.frameWidth || 0, data.frameHeight || 0);
           if (data.plate && data.time !== lastPlateTs) {
             lastPlateTs = data.time;
             const cardEl = getElById('alpr-card');
@@ -1972,10 +2062,11 @@
               metaEl.innerText = `${pct}% · ${timeStr}`;
               metaEl.style.color = style.meta;
             }
+            renderExtraPlateCards(data.plates || [], data.time);
           }
         })
         .catch(() => {});
-    }, 800);
+    }, 300);
 
     // ---- HyperLPR3 高级参数配置 ----
     (function initAlprAdvancedPanel() {
