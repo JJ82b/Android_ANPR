@@ -369,6 +369,12 @@
             <button id="modeMjpegBtn" class="btn btn-action" style="width: 49%;">MJPEG</button>
           </div>
 
+          <div style="margin-top: 8px; margin-bottom: 10px;">
+            <label for="bitrate">H.264 Bitrate (kbps, 0 = Auto)</label>
+            <input id="bitrate" type='number' min='0' max='20000' step='100' value='0' data-control='bitrate' style="margin-bottom: 8px;">
+            <button id="allowLimitedSurfaceBtn" type="button" class="btn btn-action" style="width: 100%; margin-bottom: 0;">🔒 LIMITED GPU直出: 已关闭</button>
+          </div>
+
           <p class="group-title">Camera Control</p>
 
           <label for="resolutionSelect">Resolution <span class='val-badge' id='resolutionVal'>&mdash;</span></label>
@@ -415,9 +421,6 @@
 
           <label for="fps">Frame Rate (fps)</label>
           <input id="fps" type='number' min='1' max='60' value='30' data-control='fps'>
-
-          <label for="bitrate">H.264 Bitrate (kbps, 0 = Auto)</label>
-          <input id="bitrate" type='number' min='0' max='20000' step='100' value='0' data-control='bitrate'>
 
           <div style="margin-top:12px;">
             <button id="resetDefaultsBtn" class="btn" style="width:100%;">Reset to defaults</button>
@@ -1475,6 +1478,23 @@
       const bitrate = getElById('bitrate');
       if (bitrate && settings.bitrate !== undefined) {
         bitrate.value = settings.bitrate;
+      }
+      const allowLimitedBtn = getElById('allowLimitedSurfaceBtn');
+      if (allowLimitedBtn && settings.allowLimitedSurface !== undefined) {
+        let allowLimited = settings.allowLimitedSurface === true || settings.allowLimitedSurface === 'true';
+        function renderAllowLimitedBtn() {
+          allowLimitedBtn.innerText = allowLimited ? '🚀 LIMITED GPU直出: 已开启' : '🔒 LIMITED GPU直出: 已关闭';
+          allowLimitedBtn.style.background = allowLimited ? '#0284c7' : '';
+        }
+        renderAllowLimitedBtn();
+        if (!allowLimitedBtn.dataset.bound) {
+          allowLimitedBtn.dataset.bound = '1';
+          allowLimitedBtn.addEventListener('click', () => {
+            allowLimited = !allowLimited;
+            renderAllowLimitedBtn();
+            sendControl('allow_limited_surface', allowLimited ? 'true' : 'false');
+          });
+        }
       }
       // Motion detection is only meaningful with ONVIF (event reporting), so keep its
       // controls hidden unless the server reports ONVIF as enabled.

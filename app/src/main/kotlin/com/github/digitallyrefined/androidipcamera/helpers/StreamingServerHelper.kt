@@ -1524,6 +1524,7 @@ class StreamingServerHelper(
         val streamRes: String,
         val fps: String,
         val bitrate: String,
+        val allowLimitedSurface: Boolean,
         val torch: String,
         val deviceHasFlash: Boolean,
         val audioGain: String,
@@ -1590,6 +1591,7 @@ class StreamingServerHelper(
                 put("streamRes", settings.streamRes)
                 put("fps", settings.fps)
                 put("bitrate", settings.bitrate)
+                put("allowLimitedSurface", settings.allowLimitedSurface)
                 put("torch", settings.torch)
                 // Whether ANY rear lens can drive the flash — the torch is a device-level unit,
                 // so the UI may offer it even when the selected camera reports none.
@@ -1743,6 +1745,7 @@ class StreamingServerHelper(
             streamRes = prefs.getString("stream_res", "auto") ?: "auto",
             fps = prefs.getString("stream_fps", "30") ?: "30",
             bitrate = prefs.getInt("stream_bitrate_kbps", 0).toString(),
+            allowLimitedSurface = prefs.getBoolean("allow_limited_surface", false),
             torch = prefs.getString("camera_torch", "off") ?: "off",
             deviceHasFlash = anyBackCameraWithFlash(),
             audioGain = prefs.getString("audio_gain", "1.0") ?: "1.0",

@@ -176,26 +176,28 @@ class CameraXCapture(
                         width = img.width; height = img.height
                         hasProducedFrame = true
                         try {
-                            val crop = img.cropRect
-                            val nv21 = synchronized(nv21Lock) {
-                                convertYUV420toNV21(img, nv21Buffer, nv21RowBuffer).also {
-                                    nv21Buffer = it
-                                    if (nv21RowBuffer == null || nv21RowBuffer!!.size < img.planes[0].rowStride) {
-                                        nv21RowBuffer = ByteArray(img.planes[0].rowStride)
-                                    }
+                            if (plateRecognizer.canProcessNow()) {
+                                val crop = img.cropRect
+                                val nv21 = synchronized(nv21Lock) {
+                                    convertYUV420toNV21(img, nv21Buffer, nv21RowBuffer).also {
+                                        nv21Buffer = it
+                                        if (nv21RowBuffer == null || nv21RowBuffer!!.size < img.planes[0].rowStride) {
+                                            nv21RowBuffer = ByteArray(img.planes[0].rowStride)
+                                        }
 
-                                    // 将nv21数据传给车牌识别器进行识别（方向与视频流的 rotate 设置保持一致）
-                                    plateRecognizer.processNv21Async(
-                                        nv21Source = it,
-                                        width = crop.width(),
-                                        height = crop.height(),
-                                        rotationDegrees = readConfiguredRotationDegrees()
-                                    )
+                                        // 将nv21数据传给车牌识别器进行识别（方向与视频流的 rotate 设置保持一致）
+                                        plateRecognizer.processNv21Async(
+                                            nv21Source = it,
+                                            width = crop.width(),
+                                            height = crop.height(),
+                                            rotationDegrees = readConfiguredRotationDegrees()
+                                        )
+                                    }
                                 }
+                                latestNv21 = nv21
+                                latestNv21W = crop.width(); latestNv21H = crop.height()
+                                latestNv21AtMs = System.currentTimeMillis()
                             }
-                            latestNv21 = nv21
-                            latestNv21W = crop.width(); latestNv21H = crop.height()
-                            latestNv21AtMs = System.currentTimeMillis()
                         } catch (e: Exception) { Log.e(TAG, "frame cache: ${e.message}") }
                         onFrame(img)
                     } }

@@ -763,8 +763,15 @@ class StreamingService : LifecycleService() {
     private fun supportsSurfaceEncoder(): Boolean {
         if (frontFacing) return false
         val level = cameraHardwareLevel(selectedCameraId) ?: return false
-        return level == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_FULL ||
-               level == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_3
+        if (level == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_FULL ||
+            level == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_3) {
+            return true
+        }
+        if (level == CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED) {
+            return PreferenceManager.getDefaultSharedPreferences(this)
+                .getBoolean("allow_limited_surface", false)
+        }
+        return false
     }
 
     /** auto | camerax | camera1. auto → Camera1 on LEGACY HALs (true 1080p), CameraX everywhere else. */
@@ -1619,6 +1626,12 @@ class StreamingService : LifecycleService() {
                     val targetBps = if (kbps > 0) kbps * 1000 else H264HardwareEncoder.bitrateFor(enc.width, enc.height)
                     enc.updateBitrate(targetBps)
                 }
+            }
+            "allow_limited_surface" -> {
+                val allow = value.equals("true", ignoreCase = true) || value == "1"
+                prefs.edit().putBoolean("allow_limited_surface", allow).apply()
+                Log.i(TAG, "allow_limited_surface=$allow; reconfiguring camera")
+                launchMain { if (captureRunning) startCamera(force = true) }
             }
             "zoom" -> {
                 val z = value.toFloatOrNull() ?: return

@@ -572,14 +572,14 @@ class H264HardwareEncoder(
         var partialPtsUs = 0L
         try {
             while (running) {
-                val idx = synchronized(codecLock) { codec.dequeueOutputBuffer(info, 10000) }
+                val idx = codec.dequeueOutputBuffer(info, 10000)
                 if (idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                    val format = synchronized(codecLock) { codec.outputFormat }
+                    val format = codec.outputFormat
                     cacheCodecSpecificData(format)
                 } else if (idx >= 0) {
                     var prepared: H264ParameterSetCache.AccessUnit? = null
                     try {
-                        val buf = synchronized(codecLock) { codec.getOutputBuffer(idx) }
+                        val buf = codec.getOutputBuffer(idx)
                         if (buf != null && info.size > 0) {
                             buf.position(info.offset)
                             buf.limit(info.offset + info.size)
@@ -600,7 +600,7 @@ class H264HardwareEncoder(
                             }
                         }
                     } finally {
-                        synchronized(codecLock) { codec.releaseOutputBuffer(idx, false) }
+                        codec.releaseOutputBuffer(idx, false)
                     }
                     // Never retain a MediaCodec output buffer while network work is scheduled.
                     prepared?.let {

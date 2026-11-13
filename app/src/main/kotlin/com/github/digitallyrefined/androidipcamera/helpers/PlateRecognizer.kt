@@ -183,6 +183,9 @@ class PlateRecognizer(context: Context) {
      * 现：接受NV21数据进行车牌识别，避免了重复转换
      */
 
+    fun canProcessNow(): Boolean =
+        !isProcessing.get() && (System.currentTimeMillis() - lastRunTimeMs >= currentIntervalMs)
+
     fun processNv21Async(
         nv21Source: ByteArray,
         width: Int,
