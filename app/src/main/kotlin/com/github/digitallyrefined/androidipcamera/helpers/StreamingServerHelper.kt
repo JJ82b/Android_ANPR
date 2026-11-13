@@ -62,7 +62,9 @@ class StreamingServerHelper(
     private val onRecordStatus: () -> String = { """{"recording":false}""" },
     // 新加入车牌识别variables
     private val onStreamingEnabledChanged: (Boolean) -> Unit = {},
-    private val onPlateStatus: () -> String = { """{"plate":"","confidence":0,"time":0}""" }
+    private val onPlateStatus: () -> String = { """{"plate":"","confidence":0,"time":0}""" },
+    private val onAlprConfigGet: () -> String = { "{}" },
+    private val onAlprConfigSet: (Map<String, String>) -> String = { "{}" }
 
 ) {
     data class Client(
@@ -940,6 +942,34 @@ class StreamingServerHelper(
 
             if (path == "/api/plate") {
                 val json = onPlateStatus()
+                writer.print("HTTP/1.1 200 OK\r\n")
+                writer.print("Content-Type: application/json; charset=utf-8\r\n")
+                writer.print("Cache-Control: no-cache\r\n")
+                writer.print("Connection: close\r\n\r\n")
+                writer.print(json)
+                writer.flush()
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+
+            if (path == "/api/alpr/config") {
+                val query = uri.substringAfter('?', "")
+                val json = if (httpMethod == "POST" || query.isNotBlank()) {
+                    val params = query.split('&')
+                        .mapNotNull { part ->
+                            val idx = part.indexOf('=')
+                            if (idx <= 0) null
+                            else {
+                                val k = java.net.URLDecoder.decode(part.substring(0, idx), "UTF-8")
+                                val v = java.net.URLDecoder.decode(part.substring(idx + 1), "UTF-8")
+                                k to v
+                            }
+                        }
+                        .toMap()
+                    if (params.isEmpty()) onAlprConfigGet() else onAlprConfigSet(params)
+                } else {
+                    onAlprConfigGet()
+                }
                 writer.print("HTTP/1.1 200 OK\r\n")
                 writer.print("Content-Type: application/json; charset=utf-8\r\n")
                 writer.print("Cache-Control: no-cache\r\n")

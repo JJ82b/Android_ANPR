@@ -415,6 +415,22 @@ class StreamingService : LifecycleService() {
                     val conf = recognizer?.latestConfidence ?: 0f
                     val ts = recognizer?.latestTimestamp ?: 0L
                     """{"plate":"$plate","confidence":$conf,"time":$ts}"""
+                },
+                onAlprConfigGet = {
+                    com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this).toJson()
+                },
+                onAlprConfigSet = { params ->
+                    val current = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this)
+                    val updated = com.github.digitallyrefined.androidipcamera.helpers.AlprConfig(
+                        detLevel = params["detLevel"]?.toIntOrNull() ?: current.detLevel,
+                        maxNum = params["maxNum"]?.toIntOrNull() ?: current.maxNum,
+                        boxConfThreshold = params["boxConfThreshold"]?.toFloatOrNull() ?: current.boxConfThreshold,
+                        recConfidenceThreshold = params["recConfidenceThreshold"]?.toFloatOrNull() ?: current.recConfidenceThreshold,
+                        threads = params["threads"]?.toIntOrNull() ?: current.threads
+                    )
+                    val saved = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.saveConfig(this, updated)
+                    (backend as? com.github.digitallyrefined.androidipcamera.helpers.CameraXCapture)?.plateRecognizer?.reloadConfig(saved)
+                    saved.toJson()
                 }
             )
             // Initialize encoders with the streaming server helper

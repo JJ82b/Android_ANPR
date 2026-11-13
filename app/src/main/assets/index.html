@@ -298,10 +298,37 @@
       <div class='controls-content'>
         <!-- 新增：实时车牌识别看板 -->
         <div class='setting-group' style="border-left: 4px solid #38bdf8; background: #1e293b;">
-          <h3 style="color: #38bdf8; margin-bottom: 8px;">ALPR 车牌识别</h3>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <h3 style="color: #38bdf8; margin: 0;">ALPR 车牌识别</h3>
+            <button id="alpr-adv-toggle" type="button" style="background: transparent; border: 1px solid #334155; color: #94a3b8; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;">高级选项 ▾</button>
+          </div>
           <div style="display: flex; align-items: baseline; justify-content: space-between;">
             <span id="alpr-plate" style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #fff;">等待检测...</span>
             <span id="alpr-meta" style="font-size: 12px; color: #94a3b8;"></span>
+          </div>
+          <div id="alpr-adv-panel" style="display: none; margin-top: 12px; padding-top: 10px; border-top: 1px solid #334155;">
+            <label for="alprDetLevel">检测精度 (DetLevel)</label>
+            <select id="alprDetLevel" class="camera-select" style="margin-bottom: 10px;">
+              <option value="1">高精度 (DETECT_LEVEL_HIGH)</option>
+              <option value="0">低功耗 (DETECT_LEVEL_LOW)</option>
+            </select>
+
+            <label for="alprMaxNum">单帧最大车牌数 (MaxNum) <span class="val-badge" id="alprMaxNumVal">3</span></label>
+            <input type="range" id="alprMaxNum" min="1" max="10" step="1" value="3">
+
+            <label for="alprBoxConf">检测框阈值 (BoxConfThreshold) <span class="val-badge" id="alprBoxConfVal">0.20</span></label>
+            <input type="range" id="alprBoxConf" min="0.05" max="0.95" step="0.05" value="0.20">
+
+            <label for="alprRecConf">识别置信度阈值 (RecConfThreshold) <span class="val-badge" id="alprRecConfVal">0.65</span></label>
+            <input type="range" id="alprRecConf" min="0.30" max="0.99" step="0.01" value="0.65">
+
+            <label for="alprThreads">CPU 推理线程数 (Threads) <span class="val-badge" id="alprThreadsVal">4</span></label>
+            <input type="range" id="alprThreads" min="1" max="8" step="1" value="4">
+
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
+              <span id="alpr-adv-status" style="font-size: 12px; color: #94a3b8;"></span>
+              <button id="alpr-adv-apply" type="button" class="btn btn-action" style="width: auto; padding: 6px 14px; margin: 0;">应用并重载模型</button>
+            </div>
           </div>
         </div>
 
@@ -1883,6 +1910,80 @@
         })
         .catch(() => {});
     }, 800);
+
+    // ---- HyperLPR3 高级参数配置 ----
+    (function initAlprAdvancedPanel() {
+      const toggleBtn = getElById('alpr-adv-toggle');
+      const panel = getElById('alpr-adv-panel');
+      const detLevelEl = getElById('alprDetLevel');
+      const maxNumEl = getElById('alprMaxNum');
+      const maxNumValEl = getElById('alprMaxNumVal');
+      const boxConfEl = getElById('alprBoxConf');
+      const boxConfValEl = getElById('alprBoxConfVal');
+      const recConfEl = getElById('alprRecConf');
+      const recConfValEl = getElById('alprRecConfVal');
+      const threadsEl = getElById('alprThreads');
+      const threadsValEl = getElById('alprThreadsVal');
+      const applyBtn = getElById('alpr-adv-apply');
+      const statusEl = getElById('alpr-adv-status');
+
+      if (!toggleBtn || !panel) return;
+
+      function syncBadges() {
+        if (maxNumValEl && maxNumEl) maxNumValEl.innerText = maxNumEl.value;
+        if (boxConfValEl && boxConfEl) boxConfValEl.innerText = Number(boxConfEl.value).toFixed(2);
+        if (recConfValEl && recConfEl) recConfValEl.innerText = Number(recConfEl.value).toFixed(2);
+        if (threadsValEl && threadsEl) threadsValEl.innerText = threadsEl.value;
+      }
+
+      [maxNumEl, boxConfEl, recConfEl, threadsEl].forEach(el => {
+        if (el) el.addEventListener('input', syncBadges);
+      });
+
+      function applyFromConfig(cfg) {
+        if (!cfg || typeof cfg.detLevel === 'undefined') return;
+        if (detLevelEl) detLevelEl.value = String(cfg.detLevel);
+        if (maxNumEl) maxNumEl.value = String(cfg.maxNum);
+        if (boxConfEl) boxConfEl.value = Number(cfg.boxConfThreshold).toFixed(2);
+        if (recConfEl) recConfEl.value = Number(cfg.recConfidenceThreshold).toFixed(2);
+        if (threadsEl) threadsEl.value = String(cfg.threads);
+        syncBadges();
+      }
+
+      toggleBtn.addEventListener('click', () => {
+        const opening = panel.style.display === 'none';
+        panel.style.display = opening ? 'block' : 'none';
+        toggleBtn.innerText = opening ? '高级选项 ▴' : '高级选项 ▾';
+      });
+
+      fetch('/api/alpr/config', { credentials: 'include', cache: 'no-store' })
+        .then(r => r.json())
+        .then(applyFromConfig)
+        .catch(() => {});
+
+      if (applyBtn) {
+        applyBtn.addEventListener('click', () => {
+          const qs = new URLSearchParams({
+            detLevel: detLevelEl ? detLevelEl.value : '1',
+            maxNum: maxNumEl ? maxNumEl.value : '3',
+            boxConfThreshold: boxConfEl ? boxConfEl.value : '0.20',
+            recConfidenceThreshold: recConfEl ? recConfEl.value : '0.65',
+            threads: threadsEl ? threadsEl.value : '4'
+          }).toString();
+          if (statusEl) statusEl.innerText = '正在保存并重载...';
+          fetch(`/api/alpr/config?${qs}`, { method: 'POST', credentials: 'include', cache: 'no-store' })
+            .then(r => r.json())
+            .then(cfg => {
+              applyFromConfig(cfg);
+              if (statusEl) statusEl.innerText = '已生效';
+              setTimeout(() => { if (statusEl && statusEl.innerText === '已生效') statusEl.innerText = ''; }, 2500);
+            })
+            .catch(() => {
+              if (statusEl) statusEl.innerText = '保存失败';
+            });
+        });
+      }
+    })();
     
   </script>
 </body>
