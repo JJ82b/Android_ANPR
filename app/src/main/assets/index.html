@@ -264,21 +264,181 @@
         border-left: none;
         border-top: 1px solid #333;
       }
+
+      .playback-view {
+        flex-direction: column !important;
+      }
+
+      .playback-sidebar {
+        width: auto !important;
+        height: 48% !important;
+        border-left: none !important;
+        border-top: 1px solid #333;
+      }
+    }
+
+    .playback-view {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      background: #0b0f19;
+    }
+
+    .playback-player-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 12px;
+      overflow-y: auto;
+      background: #000;
+    }
+
+    .playback-video-wrap {
+      flex: 1;
+      min-height: 260px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #05070b;
+      border: 1px solid #222;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .playback-video-wrap video {
+      width: 100%;
+      height: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+      background: #000;
+    }
+
+    .playback-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: #161b26;
+      border: 1px solid #283244;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+
+    .playback-sidebar {
+      width: 390px;
+      background: #181c24;
+      border-left: 1px solid #2c3444;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .playback-search {
+      padding: 14px;
+      border-bottom: 1px solid #2c3444;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: #1e232e;
+    }
+
+    .playback-event-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .event-card {
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #111622;
+      border: 1px solid #283244;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .event-card:hover {
+      border-color: #38bdf8;
+      background: #172033;
+    }
+
+    .event-card.active {
+      border-color: #38bdf8;
+      background: #1b283f;
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);
+    }
+
+    .event-thumb {
+      width: 112px;
+      height: 44px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: #000;
+      border: 1px solid #334155;
+      flex-shrink: 0;
+    }
+
+    .event-plate {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #f8fafc;
+    }
+
+    .event-badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.18);
+      color: #7dd3fc;
+    }
+
+    .event-meta {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 3px;
+      line-height: 1.4;
+    }
+
+    .playback-pager {
+      padding: 10px 14px;
+      border-top: 1px solid #2c3444;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #94a3b8;
+      background: #1e232e;
     }
   </style>
 </head>
 
 <body>
   <div class='header'>
-    <h2 style='margin:0;font-size:18px;'>Android IP Camera</h2>
-    <div style="display:flex;gap:8px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <h2 style='margin:0;font-size:18px;'>Android IP Camera</h2>
+      <div style="display:flex;gap:6px;">
+        <button id='liveTabBtn' class='btn active'>📹 实时监控</button>
+        <button id='playbackTabBtn' class='btn'>📼 过车回放</button>
+      </div>
+    </div>
+    <div id='liveHeaderTools' style="display:flex;gap:8px;">
       <button id='fitBtn' class='btn active' onclick='setView("fit")'>Fit Screen</button>
       <button id='origBtn' class='btn' onclick='setView("original")'>Original Size</button>
       <button id='fullscreenBtn' class='btn' onclick='toggleFullscreen()'>⛶ Fullscreen</button>
     </div>
   </div>
 
-  <div class='main'>
+  <div class='main' id='liveMainView'>
     <div class='stream-container' id='streamContainer'>
       <div id="statusOverlay" class="status-overlay" style="display: none;">
         <span id="wifiStatus" title="WiFi Strength">🛜 --%</span>
@@ -487,6 +647,58 @@
 
         <p class="notice">Some changes will momentarily restart the camera.</p>
         <p class="version"><a href="https://github.com/DigitallyRefined/android-ip-camera" target="_blank">Android IP Camera <span id="appVersion"></span></a></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="playbackView" class="playback-view" style="display:none;">
+    <div class="playback-player-area">
+      <div class="playback-video-wrap">
+        <video id="playbackVideo" controls playsinline preload="metadata"></video>
+      </div>
+      <div class="playback-bar">
+        <div id="playbackNowInfo">请从右侧选择过车记录或下方录像分段进行回放</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <select id="playbackSegmentSelect" class="camera-select" style="width:auto;min-width:200px;margin:0;padding:5px 8px;">
+            <option value="">-- 选择录像分段 --</option>
+          </select>
+          <a id="playbackDownloadLink" href="#" target="_blank" class="btn" style="display:none;padding:5px 10px;">下载 MP4</a>
+        </div>
+      </div>
+      <div id="playbackFullSnapWrap" style="display:none;background:#161b26;border:1px solid #283244;border-radius:8px;padding:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:#94a3b8;">
+          <span id="playbackSnapTitle">全景抓拍</span>
+          <button id="playbackSnapClose" type="button" class="btn" style="padding:2px 8px;font-size:11px;">收起</button>
+        </div>
+        <img id="playbackFullSnap" alt="全景抓拍" style="max-width:100%;max-height:240px;border-radius:6px;display:block;margin:0 auto;">
+      </div>
+    </div>
+
+    <div class="playback-sidebar">
+      <div class="playback-search">
+        <div style="display:flex;gap:6px;">
+          <input id="eventSearchInput" type="text" placeholder="搜索车牌号（如 粤B / 京A）" style="flex:1;margin:0;padding:7px 10px;">
+          <button id="eventSearchBtn" type="button" class="btn btn-action" style="width:auto;margin:0;padding:7px 14px;">检索</button>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <select id="eventTypeSelect" class="camera-select" style="flex:1;margin:0;padding:6px 8px;">
+            <option value="">全部车牌类型</option>
+            <option value="蓝牌">蓝牌</option>
+            <option value="绿牌">绿牌</option>
+            <option value="黄牌">黄牌</option>
+          </select>
+          <button id="eventRefreshBtn" type="button" class="btn" style="margin:0;padding:6px 10px;">刷新</button>
+        </div>
+      </div>
+
+      <div id="eventList" class="playback-event-list">
+        <div style="color:#64748b;text-align:center;padding:24px 0;">切换到此页面后自动加载过车记录…</div>
+      </div>
+
+      <div class="playback-pager">
+        <button id="eventPrevBtn" type="button" class="btn" style="padding:4px 10px;">上一页</button>
+        <span id="eventPageInfo">第 1 页</span>
+        <button id="eventNextBtn" type="button" class="btn" style="padding:4px 10px;">下一页</button>
       </div>
     </div>
   </div>
@@ -2222,6 +2434,276 @@
           .then(applyLoopState)
           .catch(() => {});
       }, 15000);
+    })();
+    
+    // ---- 过车回放与检索视图 ----
+    (function initPlaybackView() {
+      const liveTabBtn = getElById('liveTabBtn');
+      const playbackTabBtn = getElById('playbackTabBtn');
+      const liveMainView = getElById('liveMainView');
+      const liveHeaderTools = getElById('liveHeaderTools');
+      const playbackView = getElById('playbackView');
+      const videoEl = getElById('playbackVideo');
+      const nowInfoEl = getElById('playbackNowInfo');
+      const segmentSelect = getElById('playbackSegmentSelect');
+      const downloadLink = getElById('playbackDownloadLink');
+      const fullSnapWrap = getElById('playbackFullSnapWrap');
+      const fullSnapImg = getElById('playbackFullSnap');
+      const snapTitleEl = getElById('playbackSnapTitle');
+      const snapCloseBtn = getElById('playbackSnapClose');
+      const searchInput = getElById('eventSearchInput');
+      const typeSelect = getElById('eventTypeSelect');
+      const searchBtn = getElById('eventSearchBtn');
+      const refreshBtn = getElById('eventRefreshBtn');
+      const eventListEl = getElById('eventList');
+      const prevBtn = getElById('eventPrevBtn');
+      const nextBtn = getElById('eventNextBtn');
+      const pageInfoEl = getElById('eventPageInfo');
+
+      if (!liveTabBtn || !playbackTabBtn || !playbackView || !videoEl) return;
+
+      const PAGE_SIZE = 50;
+      let currentOffset = 0;
+      let currentLoadedFile = '';
+      let activeEventId = null;
+
+      function formatTime(ms) {
+        if (!ms) return '--';
+        const d = new Date(ms);
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      }
+
+      function formatOffset(ms) {
+        const totalSec = Math.max(0, Math.floor((ms || 0) / 1000));
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+
+      function switchTab(mode) {
+        const isPlayback = mode === 'playback';
+        liveTabBtn.classList.toggle('active', !isPlayback);
+        playbackTabBtn.classList.toggle('active', isPlayback);
+        if (liveMainView) liveMainView.style.display = isPlayback ? 'none' : 'flex';
+        if (liveHeaderTools) liveHeaderTools.style.display = isPlayback ? 'none' : 'flex';
+        playbackView.style.display = isPlayback ? 'flex' : 'none';
+        if (isPlayback) {
+          loadSegments();
+          loadEvents();
+        } else {
+          try { videoEl.pause(); } catch (_) {}
+        }
+      }
+
+      liveTabBtn.addEventListener('click', () => switchTab('live'));
+      playbackTabBtn.addEventListener('click', () => switchTab('playback'));
+
+      if (snapCloseBtn && fullSnapWrap) {
+        snapCloseBtn.addEventListener('click', () => { fullSnapWrap.style.display = 'none'; });
+      }
+
+      function loadSegments() {
+        fetch('/files.json', { credentials: 'include', cache: 'no-store' })
+          .then(r => r.json())
+          .then(data => {
+            if (!segmentSelect) return;
+            const prevVal = segmentSelect.value;
+            segmentSelect.innerHTML = '<option value="">-- 选择录像分段 --</option>';
+            const files = Array.isArray(data.files) ? data.files : [];
+            files.forEach(f => {
+              const opt = document.createElement('option');
+              opt.value = f.name;
+              const mb = ((f.sizeBytes || 0) / (1024 * 1024)).toFixed(1);
+              opt.textContent = `${f.name} (${mb} MB)`;
+              segmentSelect.appendChild(opt);
+            });
+            if (prevVal) segmentSelect.value = prevVal;
+          })
+          .catch(() => {});
+      }
+
+      function playVideoFileAt(fileName, seekSec, labelText) {
+        if (!fileName) return;
+        const streamUrl = `/files/stream/${encodeURIComponent(fileName)}`;
+        const dlUrl = `/files/${encodeURIComponent(fileName)}`;
+        if (segmentSelect) segmentSelect.value = fileName;
+        if (downloadLink) {
+          downloadLink.href = dlUrl;
+          downloadLink.style.display = 'inline-block';
+        }
+        if (nowInfoEl) nowInfoEl.textContent = labelText || `正在播放: ${fileName}`;
+
+        const targetTime = Math.max(0, Number(seekSec) || 0);
+        if (currentLoadedFile === fileName && videoEl.readyState >= 1) {
+          videoEl.currentTime = targetTime;
+          videoEl.play().catch(() => {});
+          return;
+        }
+
+        currentLoadedFile = fileName;
+        const onMeta = () => {
+          videoEl.removeEventListener('loadedmetadata', onMeta);
+          if (targetTime > 0 && isFinite(videoEl.duration)) {
+            videoEl.currentTime = Math.min(targetTime, Math.max(0, videoEl.duration - 0.5));
+          } else if (targetTime > 0) {
+            videoEl.currentTime = targetTime;
+          }
+          videoEl.play().catch(() => {});
+        };
+        videoEl.addEventListener('loadedmetadata', onMeta);
+        videoEl.src = streamUrl;
+        videoEl.load();
+      }
+
+      if (segmentSelect) {
+        segmentSelect.addEventListener('change', () => {
+          const name = segmentSelect.value;
+          if (name) playVideoFileAt(name, 0, `正在播放分段: ${name}`);
+        });
+      }
+
+      function renderEvents(events) {
+        if (!eventListEl) return;
+        if (!events || events.length === 0) {
+          eventListEl.innerHTML = '<div style="color:#64748b;text-align:center;padding:28px 12px;">暂无匹配的过车记录</div>';
+          return;
+        }
+        eventListEl.innerHTML = '';
+        events.forEach(ev => {
+          const card = document.createElement('div');
+          card.className = 'event-card' + (ev.id === activeEventId ? ' active' : '');
+
+          const img = document.createElement('img');
+          img.className = 'event-thumb';
+          img.alt = ev.plate || 'plate';
+          if (ev.plateImg) {
+            img.src = `/api/events/image?file=${encodeURIComponent(ev.plateImg)}`;
+          }
+
+          const info = document.createElement('div');
+          info.style.flex = '1';
+          info.style.minWidth = '0';
+
+          const topRow = document.createElement('div');
+          topRow.style.display = 'flex';
+          topRow.style.alignItems = 'center';
+          topRow.style.gap = '6px';
+          topRow.style.flexWrap = 'wrap';
+
+          const plateSpan = document.createElement('span');
+          plateSpan.className = 'event-plate';
+          plateSpan.textContent = ev.plate || '--';
+          topRow.appendChild(plateSpan);
+
+          if (ev.plateType) {
+            const typeSpan = document.createElement('span');
+            typeSpan.className = 'event-badge';
+            typeSpan.textContent = ev.plateType;
+            topRow.appendChild(typeSpan);
+          }
+
+          const confSpan = document.createElement('span');
+          confSpan.style.fontSize = '11px';
+          confSpan.style.color = '#38bdf8';
+          confSpan.style.marginLeft = 'auto';
+          confSpan.textContent = `${Math.round((ev.confidence || 0) * 100)}%`;
+          topRow.appendChild(confSpan);
+
+          const meta = document.createElement('div');
+          meta.className = 'event-meta';
+          const videoHint = ev.videoFile
+            ? `📹 ${ev.videoFile} · 偏移 ${formatOffset(ev.videoOffsetMs)}`
+            : '⚠️ 未关联录像（仅抓拍）';
+          meta.innerHTML = `<div>${formatTime(ev.ts)}</div><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${videoHint}</div>`;
+
+          info.appendChild(topRow);
+          info.appendChild(meta);
+          card.appendChild(img);
+          card.appendChild(info);
+
+          card.addEventListener('click', () => {
+            activeEventId = ev.id;
+            document.querySelectorAll('#eventList .event-card.active').forEach(el => el.classList.remove('active'));
+            card.classList.add('active');
+
+            if (ev.fullImg && fullSnapWrap && fullSnapImg) {
+              fullSnapImg.src = `/api/events/image?file=${encodeURIComponent(ev.fullImg)}`;
+              if (snapTitleEl) snapTitleEl.textContent = `全景抓拍: ${ev.plate} (${formatTime(ev.ts)})`;
+              fullSnapWrap.style.display = 'block';
+            }
+
+            if (ev.videoFile) {
+              const rawSec = Math.floor((ev.videoOffsetMs || 0) / 1000);
+              const preRollSec = Math.max(0, rawSec - 2);
+              playVideoFileAt(
+                ev.videoFile,
+                preRollSec,
+                `车牌 ${ev.plate} · 录像 ${ev.videoFile} · 定位 ${formatOffset(ev.videoOffsetMs)} (提前2秒预卷)`
+              );
+            } else if (nowInfoEl) {
+              nowInfoEl.textContent = `车牌 ${ev.plate} 无关联录像文件，已展示全景抓拍`;
+            }
+          });
+
+          eventListEl.appendChild(card);
+        });
+      }
+
+      function loadEvents() {
+        const qs = new URLSearchParams({
+          q: searchInput ? searchInput.value.trim() : '',
+          type: typeSelect ? typeSelect.value : '',
+          limit: String(PAGE_SIZE),
+          offset: String(currentOffset)
+        }).toString();
+
+        if (eventListEl) {
+          eventListEl.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:24px 0;">加载中…</div>';
+        }
+
+        fetch(`/api/events?${qs}`, { credentials: 'include', cache: 'no-store' })
+          .then(r => r.json())
+          .then(data => {
+            const events = Array.isArray(data.events) ? data.events : [];
+            renderEvents(events);
+            const pageNum = Math.floor(currentOffset / PAGE_SIZE) + 1;
+            if (pageInfoEl) pageInfoEl.textContent = `第 ${pageNum} 页 (${events.length} 条)`;
+            if (prevBtn) prevBtn.disabled = currentOffset <= 0;
+            if (nextBtn) nextBtn.disabled = events.length < PAGE_SIZE;
+          })
+          .catch(() => {
+            if (eventListEl) {
+              eventListEl.innerHTML = '<div style="color:#f87171;text-align:center;padding:24px 0;">加载过车记录失败</div>';
+            }
+          });
+      }
+
+      if (searchBtn) searchBtn.addEventListener('click', () => { currentOffset = 0; loadEvents(); });
+      if (refreshBtn) refreshBtn.addEventListener('click', () => loadEvents());
+      if (typeSelect) typeSelect.addEventListener('change', () => { currentOffset = 0; loadEvents(); });
+      if (searchInput) {
+        searchInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            currentOffset = 0;
+            loadEvents();
+          }
+        });
+      }
+      if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+          if (currentOffset >= PAGE_SIZE) {
+            currentOffset -= PAGE_SIZE;
+            loadEvents();
+          }
+        });
+      }
+      if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+          currentOffset += PAGE_SIZE;
+          loadEvents();
+        });
+      }
     })();
     
   </script>
