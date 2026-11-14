@@ -122,7 +122,12 @@ class StreamingService : LifecycleService() {
     private var pendingStartJob: kotlinx.coroutines.Job? = null
     private var torchVerifyJob: kotlinx.coroutines.Job? = null
     @Volatile private var cameraCloseStartTime: Long = 0L
-    private val plateRecognizer by lazy { com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer(this) }
+    @Volatile private var motionTorchLitByAuto = false
+    private val plateRecognizer by lazy {
+        com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer(this).apply {
+            onMotionTorchChanged = { turnOn -> handleAutoMotionTorch(turnOn) }
+        }
+    }
 
     var onClientConnected: (() -> Unit)? = null
     var onClientDisconnected: (() -> Unit)? = null
@@ -434,6 +439,30 @@ class StreamingService : LifecycleService() {
                         put("frameWidth", fw)
                         put("frameHeight", fh)
                         put("processTimeMs", processTimeMs)
+                        val telemetry = com.github.digitallyrefined.androidipcamera.helpers.StreamingServerHelper.readTelemetry(this@StreamingService)
+                        put("batteryPowerW", telemetry.batteryPowerW)
+                        put("batteryCharging", telemetry.batteryCharging)
+                        put("batteryTempC", telemetry.batteryTempC)
+                        put("cpuTempC", telemetry.cpuTempC)
+                        recognizer.latestMotionDebug?.let { md ->
+                            put("motionDebug", org.json.JSONObject().apply {
+                                put("hasMotion", md.hasMotion)
+                                put("motionCropActive", md.motionCropActive)
+                                put("clusterX1", md.clusterX1.toDouble())
+                                put("clusterY1", md.clusterY1.toDouble())
+                                put("clusterX2", md.clusterX2.toDouble())
+                                put("clusterY2", md.clusterY2.toDouble())
+                                put("cropX1", md.cropX1.toDouble())
+                                put("cropY1", md.cropY1.toDouble())
+                                put("cropX2", md.cropX2.toDouble())
+                                put("cropY2", md.cropY2.toDouble())
+                                put("cropW", md.cropW)
+                                put("cropH", md.cropH)
+                                put("frameW", md.frameW)
+                                put("frameH", md.frameH)
+                                put("timestampMs", md.timestampMs)
+                            })
+                        }
                         put("plates", org.json.JSONArray().apply {
                             for (p in plates) {
                                 put(org.json.JSONObject().apply {
@@ -461,7 +490,15 @@ class StreamingService : LifecycleService() {
                         recConfidenceThreshold = params["recConfidenceThreshold"]?.toFloatOrNull() ?: current.recConfidenceThreshold,
                         threads = params["threads"]?.toIntOrNull() ?: current.threads,
                         intervalMs = params["intervalMs"]?.toLongOrNull() ?: current.intervalMs,
-                        useGpu = params["useGpu"]?.let { it == "true" || it == "1" } ?: current.useGpu
+                        useGpu = params["useGpu"]?.let { it == "true" || it == "1" } ?: current.useGpu,
+                        motionGateEnabled = params["motionGateEnabled"]?.let { it == "true" || it == "1" } ?: current.motionGateEnabled,
+                        roiEnabled = params["roiEnabled"]?.let { it == "true" || it == "1" } ?: current.roiEnabled,
+                        roiX = params["roiX"]?.toFloatOrNull() ?: current.roiX,
+                        roiY = params["roiY"]?.toFloatOrNull() ?: current.roiY,
+                        roiW = params["roiW"]?.toFloatOrNull() ?: current.roiW,
+                        roiH = params["roiH"]?.toFloatOrNull() ?: current.roiH,
+                        motionCropEnabled = params["motionCropEnabled"]?.let { it == "true" || it == "1" } ?: current.motionCropEnabled,
+                        motionTorchEnabled = params["motionTorchEnabled"]?.let { it == "true" || it == "1" } ?: current.motionTorchEnabled
                     )
                     val saved = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.saveConfig(this, updated)
                     plateRecognizer.reloadConfig(saved)
@@ -1316,6 +1353,28 @@ class StreamingService : LifecycleService() {
      * the LED lit while a flash-less lens (ultra-wide/depth) is streaming or while the camera
      * restarts between lens switches. Returns false if the platform rejected it.
      */
+    private fun handleAutoMotionTorch(turnOn: Boolean) {
+        launchMain {
+            val prefs = PreferenceManager.getDefaultSharedPreferences(this@StreamingService)
+            val manualTorchOn = prefs.getString(PREF_CAMERA_TORCH, "off") == "on"
+            if (turnOn) {
+                if (!manualTorchOn && !motionTorchLitByAuto) {
+                    motionTorchLitByAuto = true
+                    backend?.setTorch(true)
+                    if (backend?.hasFlashUnit != true) setDeviceTorch(true)
+                    Log.i(TAG, "检测到运动，自动开启闪光灯")
+                }
+            } else if (motionTorchLitByAuto) {
+                motionTorchLitByAuto = false
+                if (!manualTorchOn) {
+                    backend?.setTorch(false)
+                    setDeviceTorch(false)
+                    Log.i(TAG, "画面恢复静止，自动关闭闪光灯")
+                }
+            }
+        }
+    }
+
     private fun setDeviceTorch(on: Boolean): Boolean {
         deviceTorchOn = try {
             val id = flashAnchorCameraId() ?: return false

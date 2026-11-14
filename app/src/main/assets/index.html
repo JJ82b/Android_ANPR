@@ -548,6 +548,9 @@
       <div id="statusOverlay" class="status-overlay" style="display: none;">
         <span id="wifiStatus" title="WiFi Strength">🛜 --%</span>
         <span id="batteryStatus" title="Battery Status">🔋 --%</span>
+        <span id="batteryPowerStatus" title="电池输出功耗" style="display: none;">⚡ --W</span>
+        <span id="batteryTempStatus" title="电池温度" style="display: none;">🌡️ --°C</span>
+        <span id="cpuTempStatus" title="CPU 温度" style="display: none;">🖥️ --°C</span>
       </div>
       <div id="streamLoading" class="stream-loading" data-i18n="loading">加载中...</div>
       <canvas id='streamCanvas'></canvas>
@@ -571,6 +574,7 @@
             </div>
             <div style="display: flex; align-items: center; gap: 6px;">
               <span id="alpr-latency" style="font-size: 11px; color: #94a3b8;">--ms</span>
+              <button id="alpr-motion-vis-btn" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprMotionVis">运动区块</button>
               <button id="alpr-adv-toggle" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprAdvToggle">高级选项 ▾</button>
             </div>
           </div>
@@ -605,6 +609,37 @@
 
             <label for="alprIntervalMs"><span data-i18n="alprIntervalMs">车牌采样间隔 (Interval)</span> <span class="val-badge" id="alprIntervalMsVal">200ms</span></label>
             <input type="range" id="alprIntervalMs" min="50" max="2000" step="50" value="200">
+
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
+              <input type="checkbox" id="alprMotionGate" checked style="width: auto; margin: 0;">
+              <span data-i18n="alprMotionGate">静止节能门控 (MotionGate)</span>
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
+              <input type="checkbox" id="alprMotionCrop" style="width: auto; margin: 0;">
+              <span data-i18n="alprMotionCrop">运动团块动态裁剪 (MotionCrop)</span>
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
+              <input type="checkbox" id="alprMotionTorch" style="width: auto; margin: 0;">
+              <span data-i18n="alprMotionTorch">检测到运动自动开启闪光灯 (5秒延时熄灭)</span>
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
+              <input type="checkbox" id="alprRoiEnabled" style="width: auto; margin: 0;">
+              <span data-i18n="alprRoiEnabled">固定识别区域裁剪 (ROI)</span>
+            </label>
+
+            <div id="alpr-roi-box" style="display: none; margin-top: 6px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.35);">
+              <label for="alprRoiX"><span data-i18n="alprRoiX">ROI 左边界 (X)</span> <span class="val-badge" id="alprRoiXVal">0.00</span></label>
+              <input type="range" id="alprRoiX" min="0" max="0.90" step="0.05" value="0.00">
+              <label for="alprRoiY"><span data-i18n="alprRoiY">ROI 上边界 (Y)</span> <span class="val-badge" id="alprRoiYVal">0.25</span></label>
+              <input type="range" id="alprRoiY" min="0" max="0.90" step="0.05" value="0.25">
+              <label for="alprRoiW"><span data-i18n="alprRoiW">ROI 宽度 (W)</span> <span class="val-badge" id="alprRoiWVal">1.00</span></label>
+              <input type="range" id="alprRoiW" min="0.10" max="1.00" step="0.05" value="1.00">
+              <label for="alprRoiH"><span data-i18n="alprRoiH">ROI 高度 (H)</span> <span class="val-badge" id="alprRoiHVal">0.75</span></label>
+              <input type="range" id="alprRoiH" min="0.10" max="1.00" step="0.05" value="0.75">
+            </div>
 
             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
               <span id="alpr-adv-status" style="font-size: 12px; color: #cbd5e1;"></span>
@@ -877,6 +912,7 @@
         loading: '加载中...',
         loadingSettings: '正在加载设置…',
         alprTitle: 'ALPR 车牌识别',
+        alprMotionVis: '运动区块',
         alprAdvToggle: '高级选项 ▾',
         alprWaiting: '等待检测...',
         alprBackend: '推理后端 (Backend)',
@@ -890,6 +926,14 @@
         alprRecConf: '识别置信度阈值 (RecConfThreshold)',
         alprThreads: 'CPU 推理线程数 (Threads)',
         alprIntervalMs: '车牌采样间隔 (Interval)',
+        alprMotionGate: '静止节能门控 (MotionGate)',
+        alprMotionCrop: '运动团块动态裁剪 (MotionCrop)',
+        alprMotionTorch: '检测到运动自动开启闪光灯 (5秒延时熄灭)',
+        alprRoiEnabled: '固定识别区域裁剪 (ROI)',
+        alprRoiX: 'ROI 左边界 (X)',
+        alprRoiY: 'ROI 上边界 (Y)',
+        alprRoiW: 'ROI 宽度 (W)',
+        alprRoiH: 'ROI 高度 (H)',
         alprApply: '应用并重载模型',
         settingsTitle: '基础设置',
         cameraLabel: '摄像头',
@@ -986,6 +1030,7 @@
         loading: 'Loading...',
         loadingSettings: 'Loading settings…',
         alprTitle: 'ALPR Plate',
+        alprMotionVis: 'Motion Box',
         alprAdvToggle: 'Advanced ▾',
         alprWaiting: 'Waiting...',
         alprBackend: 'Inference Backend',
@@ -999,6 +1044,14 @@
         alprRecConf: 'Rec Confidence (RecConfThreshold)',
         alprThreads: 'CPU Threads (Threads)',
         alprIntervalMs: 'Sample Interval (Interval)',
+        alprMotionGate: 'Static Power-Save Gate (MotionGate)',
+        alprMotionCrop: 'Moving-Object Dynamic Crop (MotionCrop)',
+        alprMotionTorch: 'Auto Flash on Motion (5s Hold)',
+        alprRoiEnabled: 'Fixed Recognition Region (ROI)',
+        alprRoiX: 'ROI Left (X)',
+        alprRoiY: 'ROI Top (Y)',
+        alprRoiW: 'ROI Width (W)',
+        alprRoiH: 'ROI Height (H)',
         alprApply: 'Apply & Reload Model',
         settingsTitle: 'Settings',
         cameraLabel: 'Camera',
@@ -2280,6 +2333,9 @@
     function updateStatusOverlay(data) {
       const batteryEl = getElById('batteryStatus');
       const wifiEl = getElById('wifiStatus');
+      const powerEl = getElById('batteryPowerStatus');
+      const batTempEl = getElById('batteryTempStatus');
+      const cpuTempEl = getElById('cpuTempStatus');
       const overlay = getElById('statusOverlay');
 
       if (batteryEl && typeof data.batteryPercent === 'number') {
@@ -2305,9 +2361,40 @@
         }
       }
 
+      if (powerEl && typeof data.batteryPowerW === 'number') {
+        if (data.batteryPowerW < 0) {
+          powerEl.style.display = 'none';
+        } else {
+          powerEl.style.display = 'flex';
+          const pIcon = data.batteryCharging ? '🔌' : '⚡';
+          powerEl.innerHTML = `${pIcon} ${data.batteryPowerW.toFixed(1)}W`;
+        }
+      }
+
+      if (batTempEl && typeof data.batteryTempC === 'number') {
+        if (data.batteryTempC < -100) {
+          batTempEl.style.display = 'none';
+        } else {
+          batTempEl.style.display = 'flex';
+          batTempEl.innerHTML = `🌡️ ${data.batteryTempC.toFixed(1)}°C`;
+        }
+      }
+
+      if (cpuTempEl && typeof data.cpuTempC === 'number') {
+        if (data.cpuTempC < -100) {
+          cpuTempEl.style.display = 'none';
+        } else {
+          cpuTempEl.style.display = 'flex';
+          cpuTempEl.innerHTML = `🖥️ ${data.cpuTempC.toFixed(1)}°C`;
+        }
+      }
+
       if (overlay) {
         const hasStatus = (batteryEl && batteryEl.style.display !== 'none') ||
-          (wifiEl && wifiEl.style.display !== 'none');
+          (wifiEl && wifiEl.style.display !== 'none') ||
+          (powerEl && powerEl.style.display !== 'none') ||
+          (batTempEl && batTempEl.style.display !== 'none') ||
+          (cpuTempEl && cpuTempEl.style.display !== 'none');
         overlay.style.display = hasStatus ? 'flex' : 'none';
       }
     }
@@ -2664,12 +2751,71 @@
     };
     const DEFAULT_PLATE_STYLE = { label: '未知类型', bg: '#1e293b', border: '#38bdf8', title: '#38bdf8', text: '#ffffff', meta: '#cbd5e1', badgeBg: 'rgba(255,255,255,0.16)', badgeText: '#e2e8f0' };
 
-    function renderPlateOverlay(plates, frameW, frameH) {
+    function renderPlateOverlay(plates, frameW, frameH, motionDebug) {
       const overlay = getElById('alprOverlayCanvas');
       if (!overlay) return;
       const ctx = overlay.getContext('2d');
       if (!ctx) return;
       ctx.clearRect(0, 0, overlay.width, overlay.height);
+      if (window.alprRoiState && window.alprRoiState.enabled && lastVideoRect) {
+        const rs = window.alprRoiState;
+        const rx = lastVideoRect.dx + rs.x * lastVideoRect.dw;
+        const ry = lastVideoRect.dy + rs.y * lastVideoRect.dh;
+        const rw = Math.min(1 - rs.x, rs.w) * lastVideoRect.dw;
+        const rh = Math.min(1 - rs.y, rs.h) * lastVideoRect.dh;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.9)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(rx, ry, rw, rh);
+        ctx.restore();
+      }
+      if (window.alprMotionVisEnabled && motionDebug && lastVideoRect) {
+        ctx.save();
+        if (motionDebug.clusterX2 > motionDebug.clusterX1 && motionDebug.clusterY2 > motionDebug.clusterY1) {
+          const cx = lastVideoRect.dx + motionDebug.clusterX1 * lastVideoRect.dw;
+          const cy = lastVideoRect.dy + motionDebug.clusterY1 * lastVideoRect.dh;
+          const cw = (motionDebug.clusterX2 - motionDebug.clusterX1) * lastVideoRect.dw;
+          const ch = (motionDebug.clusterY2 - motionDebug.clusterY1) * lastVideoRect.dh;
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.95)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([4, 3]);
+          ctx.strokeRect(cx, cy, cw, ch);
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.14)';
+          ctx.fillRect(cx, cy, cw, ch);
+        }
+        if (motionDebug.motionCropActive && motionDebug.cropX2 > motionDebug.cropX1) {
+          const px = lastVideoRect.dx + motionDebug.cropX1 * lastVideoRect.dw;
+          const py = lastVideoRect.dy + motionDebug.cropY1 * lastVideoRect.dh;
+          const pw = (motionDebug.cropX2 - motionDebug.cropX1) * lastVideoRect.dw;
+          const ph = (motionDebug.cropY2 - motionDebug.cropY1) * lastVideoRect.dh;
+          ctx.setLineDash([]);
+          ctx.strokeStyle = 'rgba(192, 132, 252, 0.98)';
+          ctx.lineWidth = 2.5;
+          ctx.strokeRect(px, py, pw, ph);
+        }
+        let statusText = '';
+        let statusBg = 'rgba(15, 23, 42, 0.78)';
+        if (motionDebug.motionCropActive) {
+          statusText = `动态裁切生效 ${motionDebug.cropW}×${motionDebug.cropH}`;
+          statusBg = 'rgba(126, 34, 206, 0.85)';
+        } else if (motionDebug.hasMotion) {
+          statusText = `运动唤醒 · 全图/ROI ${motionDebug.cropW}×${motionDebug.cropH}`;
+          statusBg = 'rgba(2, 132, 199, 0.82)';
+        } else {
+          statusText = '画面静止 · 节能退避中';
+        }
+        ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, sans-serif';
+        const tw = ctx.measureText(statusText).width + 12;
+        const sx = lastVideoRect.dx + 8;
+        const sy = lastVideoRect.dy + 8;
+        ctx.fillStyle = statusBg;
+        ctx.fillRect(sx, sy, tw, 20);
+        ctx.fillStyle = '#f8fafc';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(statusText, sx + 6, sy + 10);
+        ctx.restore();
+      }
       if (!plates || !plates.length || !lastVideoRect || !frameW || !frameH) return;
 
       for (const p of plates) {
@@ -2738,13 +2884,28 @@
       }
     }
 
+    window.alprMotionVisEnabled = false;
+    (function initMotionVisToggle() {
+      const btn = getElById('alpr-motion-vis-btn');
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        window.alprMotionVisEnabled = !window.alprMotionVisEnabled;
+        btn.style.background = window.alprMotionVisEnabled ? 'rgba(14, 165, 233, 0.45)' : 'rgba(15,23,42,0.45)';
+        btn.style.borderColor = window.alprMotionVisEnabled ? '#38bdf8' : 'rgba(148,163,184,0.45)';
+        if (!window.alprMotionVisEnabled) {
+          renderPlateOverlay([], 0, 0, null);
+        }
+      });
+    })();
+
     let lastPlateTs = 0;
     setInterval(() => {
       if (isPlaybackViewActive) return;
       fetch('/api/plate', { credentials: 'include', cache: 'no-store' })
         .then(r => r.json())
         .then(data => {
-          renderPlateOverlay(data.plates || [], data.frameWidth || 0, data.frameHeight || 0);
+          updateStatusOverlay(data);
+          renderPlateOverlay(data.plates || [], data.frameWidth || 0, data.frameHeight || 0, data.motionDebug || null);
           const latencyEl = getElById('alpr-latency');
           if (latencyEl && data.processTimeMs > 0) {
             latencyEl.innerText = `${data.processTimeMs}ms`;
@@ -2801,6 +2962,19 @@
       const threadsValEl = getElById('alprThreadsVal');
       const intervalMsEl = getElById('alprIntervalMs');
       const intervalMsValEl = getElById('alprIntervalMsVal');
+      const motionGateEl = getElById('alprMotionGate');
+      const motionCropEl = getElById('alprMotionCrop');
+      const motionTorchEl = getElById('alprMotionTorch');
+      const roiEnabledEl = getElById('alprRoiEnabled');
+      const roiBoxEl = getElById('alpr-roi-box');
+      const roiXEl = getElById('alprRoiX');
+      const roiXValEl = getElById('alprRoiXVal');
+      const roiYEl = getElById('alprRoiY');
+      const roiYValEl = getElById('alprRoiYVal');
+      const roiWEl = getElById('alprRoiW');
+      const roiWValEl = getElById('alprRoiWVal');
+      const roiHEl = getElById('alprRoiH');
+      const roiHValEl = getElById('alprRoiHVal');
       const applyBtn = getElById('alpr-adv-apply');
       const statusEl = getElById('alpr-adv-status');
 
@@ -2812,11 +2986,24 @@
         if (recConfValEl && recConfEl) recConfValEl.innerText = Number(recConfEl.value).toFixed(2);
         if (threadsValEl && threadsEl) threadsValEl.innerText = threadsEl.value;
         if (intervalMsValEl && intervalMsEl) intervalMsValEl.innerText = `${intervalMsEl.value}ms`;
+        if (roiXValEl && roiXEl) roiXValEl.innerText = Number(roiXEl.value).toFixed(2);
+        if (roiYValEl && roiYEl) roiYValEl.innerText = Number(roiYEl.value).toFixed(2);
+        if (roiWValEl && roiWEl) roiWValEl.innerText = Number(roiWEl.value).toFixed(2);
+        if (roiHValEl && roiHEl) roiHValEl.innerText = Number(roiHEl.value).toFixed(2);
+        if (roiBoxEl && roiEnabledEl) roiBoxEl.style.display = roiEnabledEl.checked ? 'block' : 'none';
+        window.alprRoiState = {
+          enabled: Boolean(roiEnabledEl && roiEnabledEl.checked),
+          x: roiXEl ? Number(roiXEl.value) : 0,
+          y: roiYEl ? Number(roiYEl.value) : 0.25,
+          w: roiWEl ? Number(roiWEl.value) : 1,
+          h: roiHEl ? Number(roiHEl.value) : 0.75
+        };
       }
 
-      [maxNumEl, boxConfEl, recConfEl, threadsEl, intervalMsEl].forEach(el => {
+      [maxNumEl, boxConfEl, recConfEl, threadsEl, intervalMsEl, roiXEl, roiYEl, roiWEl, roiHEl].forEach(el => {
         if (el) el.addEventListener('input', syncBadges);
       });
+      if (roiEnabledEl) roiEnabledEl.addEventListener('change', syncBadges);
 
       function applyFromConfig(cfg) {
         if (!cfg || typeof cfg.detLevel === 'undefined') return;
@@ -2831,6 +3018,14 @@
         if (recConfEl) recConfEl.value = Number(cfg.recConfidenceThreshold).toFixed(2);
         if (threadsEl) threadsEl.value = String(cfg.threads);
         if (intervalMsEl && cfg.intervalMs !== undefined) intervalMsEl.value = String(cfg.intervalMs);
+        if (motionGateEl && cfg.motionGateEnabled !== undefined) motionGateEl.checked = Boolean(cfg.motionGateEnabled);
+        if (motionCropEl && cfg.motionCropEnabled !== undefined) motionCropEl.checked = Boolean(cfg.motionCropEnabled);
+        if (motionTorchEl && cfg.motionTorchEnabled !== undefined) motionTorchEl.checked = Boolean(cfg.motionTorchEnabled);
+        if (roiEnabledEl && cfg.roiEnabled !== undefined) roiEnabledEl.checked = Boolean(cfg.roiEnabled);
+        if (roiXEl && cfg.roiX !== undefined) roiXEl.value = Number(cfg.roiX).toFixed(2);
+        if (roiYEl && cfg.roiY !== undefined) roiYEl.value = Number(cfg.roiY).toFixed(2);
+        if (roiWEl && cfg.roiW !== undefined) roiWEl.value = Number(cfg.roiW).toFixed(2);
+        if (roiHEl && cfg.roiH !== undefined) roiHEl.value = Number(cfg.roiH).toFixed(2);
         syncBadges();
       }
 
@@ -2854,7 +3049,15 @@
             boxConfThreshold: boxConfEl ? boxConfEl.value : '0.20',
             recConfidenceThreshold: recConfEl ? recConfEl.value : '0.65',
             threads: threadsEl ? threadsEl.value : '4',
-            intervalMs: intervalMsEl ? intervalMsEl.value : '200'
+            intervalMs: intervalMsEl ? intervalMsEl.value : '200',
+            motionGateEnabled: motionGateEl ? String(motionGateEl.checked) : 'true',
+            motionCropEnabled: motionCropEl ? String(motionCropEl.checked) : 'false',
+            motionTorchEnabled: motionTorchEl ? String(motionTorchEl.checked) : 'false',
+            roiEnabled: roiEnabledEl ? String(roiEnabledEl.checked) : 'false',
+            roiX: roiXEl ? roiXEl.value : '0.00',
+            roiY: roiYEl ? roiYEl.value : '0.25',
+            roiW: roiWEl ? roiWEl.value : '1.00',
+            roiH: roiHEl ? roiHEl.value : '0.75'
           }).toString();
           if (statusEl) statusEl.innerText = '正在保存并重载...';
           fetch(`/api/alpr/config?${qs}`, { method: 'POST', credentials: 'include', cache: 'no-store' })

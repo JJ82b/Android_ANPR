@@ -1623,6 +1623,7 @@ class StreamingServerHelper(
         val cameras: List<InfoCamera>,
         val batteryPercent: Int,
         val wifiStrength: Int,
+        val telemetry: DeviceTelemetry,
         val settings: StreamSettings,
         val perCameraSettings: Map<String, Map<String, String>> = emptyMap(),
     ) {
@@ -1667,6 +1668,10 @@ class StreamingServerHelper(
             })
             put("batteryPercent", batteryPercent)
             put("wifiStrength", wifiStrength)
+            put("batteryPowerW", telemetry.batteryPowerW)
+            put("batteryCharging", telemetry.batteryCharging)
+            put("batteryTempC", telemetry.batteryTempC)
+            put("cpuTempC", telemetry.cpuTempC)
             put("settings", JSONObject().apply {
                 // Keep global stream-level settings here; per-camera lens settings are exposed
                 // under `cameras[].lensSettings` and should be used by the UI.
@@ -1804,6 +1809,7 @@ class StreamingServerHelper(
             cameras = cameraList,
             batteryPercent = getBatteryPercent(),
             wifiStrength = getWifiStrength(),
+            telemetry = readTelemetry(context),
             settings = getStreamSettings(cameraList),
             perCameraSettings = perCamera,
         )
@@ -2079,6 +2085,112 @@ class StreamingServerHelper(
             key?.let { ch.get(it) }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    data class DeviceTelemetry(
+        val batteryPowerW: Double,
+        val batteryCharging: Boolean,
+        val batteryTempC: Double,
+        val cpuTempC: Double
+    )
+
+    companion object {
+        @Volatile private var cachedTelemetry: DeviceTelemetry? = null
+        @Volatile private var cachedTelemetryAtMs: Long = 0L
+
+        fun readTelemetry(context: Context): DeviceTelemetry {
+            val now = System.currentTimeMillis()
+            val prev = cachedTelemetry
+            if (prev != null && now - cachedTelemetryAtMs < 2000L) {
+                return prev
+            }
+            val intent = try {
+                context.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+            } catch (_: Exception) {
+                null
+            }
+            val status = intent?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
+            val plugged = intent?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) ?: 0
+            val isCharging = plugged != 0 ||
+                status == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == android.os.BatteryManager.BATTERY_STATUS_FULL
+            val voltageMv = intent?.getIntExtra(android.os.BatteryManager.EXTRA_VOLTAGE, 0) ?: 0
+            val tempTenths = intent?.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE) ?: Int.MIN_VALUE
+            val batteryTempC = if (tempTenths in -500..1500) Math.round(tempTenths.toDouble()) / 10.0 else -999.0
+
+            val bm = try {
+                context.getSystemService(Context.BATTERY_SERVICE) as? android.os.BatteryManager
+            } catch (_: Exception) {
+                null
+            }
+            val rawCurrent = try {
+                bm?.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CURRENT_NOW) ?: Int.MIN_VALUE
+            } catch (_: Exception) {
+                Int.MIN_VALUE
+            }
+            val batteryPowerW = if (rawCurrent != Int.MIN_VALUE && rawCurrent != 0) {
+                val absRaw = kotlin.math.abs(rawCurrent.toDouble())
+                val currentMa = if (absRaw <= 5000.0) absRaw else absRaw / 1000.0
+                val volts = if (voltageMv > 2000) voltageMv / 1000.0 else 3.8
+                Math.round(((currentMa / 1000.0) * volts) * 100.0) / 100.0
+            } else {
+                -1.0
+            }
+
+            val cpuTempC = readCpuTempC(context)
+            val fresh = DeviceTelemetry(batteryPowerW, isCharging, batteryTempC, cpuTempC)
+            cachedTelemetry = fresh
+            cachedTelemetryAtMs = now
+            return fresh
+        }
+
+        private fun readCpuTempC(context: Context): Double {
+            var maxCpuTemp = -999.0
+            try {
+                for (i in 0..45) {
+                    val zoneDir = File("/sys/class/thermal/thermal_zone$i")
+                    if (!zoneDir.exists()) continue
+                    val typeFile = File(zoneDir, "type")
+                    val tempFile = File(zoneDir, "temp")
+                    if (!typeFile.canRead() || !tempFile.canRead()) continue
+                    val type = typeFile.readText().trim().lowercase(Locale.US)
+                    val isCpuZone = (type.contains("cpu") || type.contains("soc") || type.contains("tsens") ||
+                        type.contains("big") || type.contains("little") || type.contains("cluster") ||
+                        type == "ap" || type.startsWith("ap_")) &&
+                        !type.contains("batt") && !type.contains("skin") && !type.contains("usb") &&
+                        !type.contains("charger") && !type.contains("pa") && !type.contains("modem")
+                    if (!isCpuZone) continue
+                    val raw = tempFile.readText().trim().toDoubleOrNull() ?: continue
+                    val c = when {
+                        raw >= 1000.0 -> raw / 1000.0
+                        raw >= 150.0 -> raw / 10.0
+                        else -> raw
+                    }
+                    if (c in 5.0..120.0 && c > maxCpuTemp) {
+                        maxCpuTemp = c
+                    }
+                }
+            } catch (_: Exception) {
+            }
+            if (maxCpuTemp > -900.0) {
+                return Math.round(maxCpuTemp * 10.0) / 10.0
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                try {
+                    val hpm = context.getSystemService(Context.HARDWARE_PROPERTIES_SERVICE) as? android.os.HardwarePropertiesManager
+                    val temps = hpm?.getDeviceTemperatures(
+                        android.os.HardwarePropertiesManager.DEVICE_TEMPERATURE_CPU,
+                        android.os.HardwarePropertiesManager.TEMPERATURE_CURRENT
+                    )
+                    val valid = temps?.filter { it > 5f && it < 120f && it != android.os.HardwarePropertiesManager.UNDEFINED_TEMPERATURE }
+                    if (!valid.isNullOrEmpty()) {
+                        return Math.round(valid.max().toDouble() * 10.0) / 10.0
+                    }
+                } catch (_: Exception) {
+                }
+            }
+            return -999.0
         }
     }
 
