@@ -82,6 +82,8 @@ class PlateRecognizer(context: Context) {
     
     private val isProcessing = AtomicBoolean(false)
     private var lastRunTimeMs = 0L
+    private val snapshotBuffers = arrayOfNulls<ByteArray>(2)
+    private var snapshotIndex = 0
 
     companion object {
         private const val PREF_DET_LEVEL = "alpr_det_level"
@@ -282,6 +284,54 @@ class PlateRecognizer(context: Context) {
         return !isProcessing.get() && (now - lastRunTimeMs >= currentIntervalMs)
     }
 
+    private fun acquireSnapshotBuffer(requiredBytes: Int): ByteArray {
+        val idx = snapshotIndex
+        snapshotIndex = idx xor 1
+        val existing = snapshotBuffers[idx]
+        if (existing != null && existing.size == requiredBytes) {
+            return existing
+        }
+        return ByteArray(requiredBytes).also { snapshotBuffers[idx] = it }
+    }
+
+    /**
+     * 对高分辨率 NV21 做 1/2 降采样（如 1920x1080 -> 960x540），减少 75% 内存拷贝与 C++ 缩放耗时，
+     * 同时仍大于 HyperLPR3 b640x(640px)/b320(320px) 输入尺寸。
+     */
+    private fun downsampleNv21Half(
+        src: ByteArray,
+        srcW: Int,
+        srcH: Int,
+        dst: ByteArray,
+        dstW: Int,
+        dstH: Int
+    ) {
+        for (y in 0 until dstH) {
+            val srcRowOffset = (y shl 1) * srcW
+            val dstRowOffset = y * dstW
+            var sx = 0
+            for (x in 0 until dstW) {
+                dst[dstRowOffset + x] = src[srcRowOffset + sx]
+                sx += 2
+            }
+        }
+        val srcYSize = srcW * srcH
+        val dstYSize = dstW * dstH
+        val uvRows = dstH shr 1
+        for (uvY in 0 until uvRows) {
+            val srcUvRow = srcYSize + (uvY shl 1) * srcW
+            val dstUvRow = dstYSize + uvY * dstW
+            var sx = 0
+            var dx = 0
+            while (dx < dstW) {
+                dst[dstUvRow + dx] = src[srcUvRow + sx]
+                dst[dstUvRow + dx + 1] = src[srcUvRow + sx + 1]
+                sx += 4
+                dx += 2
+            }
+        }
+    }
+
     fun processNv21Async(
         nv21Source: ByteArray,
         width: Int,
@@ -304,8 +354,16 @@ class PlateRecognizer(context: Context) {
         }
         lastRunTimeMs = now
 
-        // 複製一份快照給背景執行緒使用（避免與下一幀的 nv21Buffer 記憶體覆蓋衝突）
-        val frameCopy = nv21Source.copyOf()
+        val useHalfScale = (width >= 1280 || height >= 1280) && width >= 4 && height >= 4
+        val inferW = if (useHalfScale) ((width shr 1) and 1.inv()) else width
+        val inferH = if (useHalfScale) ((height shr 1) and 1.inv()) else height
+        val requiredBytes = inferW * inferH * 3 / 2
+        val frameCopy = acquireSnapshotBuffer(requiredBytes)
+        if (useHalfScale) {
+            downsampleNv21Half(nv21Source, width, height, frameCopy, inferW, inferH)
+        } else {
+            System.arraycopy(nv21Source, 0, frameCopy, 0, minOf(nv21Source.size, requiredBytes))
+        }
 
         inferExecutor.execute {
             currentTaskStartedAtMs = System.currentTimeMillis()
@@ -324,22 +382,22 @@ class PlateRecognizer(context: Context) {
                 val plates = when {
                     activeGpuCore != null -> activeGpuCore.plateRecognitionFromBuffer(
                         frameCopy,
-                        height,
-                        width,
+                        inferH,
+                        inferW,
                         rotation,
                         HyperLPR3.STREAM_YUV_NV21
                     )
                     activeCore != null -> activeCore.plateRecognitionFromBuffer(
                         frameCopy,
-                        height,
-                        width,
+                        inferH,
+                        inferW,
                         rotation,
                         HyperLPR3.STREAM_YUV_NV21
                     )
                     else -> HyperLPR3.getInstance().plateRecognition(
                         frameCopy,
-                        height,
-                        width,
+                        inferH,
+                        inferW,
                         rotation,
                         HyperLPR3.STREAM_YUV_NV21
                     )
@@ -349,20 +407,26 @@ class PlateRecognizer(context: Context) {
                 val minRecConf = currentRecThreshold
                 val rotatedW = if (rotationDegrees == 90 || rotationDegrees == 270) height else width
                 val rotatedH = if (rotationDegrees == 90 || rotationDegrees == 270) width else height
-                val detected = (plates ?: emptyArray())
+                val inferRotatedW = if (rotationDegrees == 90 || rotationDegrees == 270) inferH else inferW
+                val inferRotatedH = if (rotationDegrees == 90 || rotationDegrees == 270) inferW else inferH
+                val scaleX = rotatedW.toFloat() / inferRotatedW.coerceAtLeast(1)
+                val scaleY = rotatedH.toFloat() / inferRotatedH.coerceAtLeast(1)
+
+                val validPlates = (plates ?: emptyArray())
                     .filter { it != null && it.confidence >= minRecConf && it.code.isNotBlank() }
                     .sortedByDescending { it.confidence }
-                    .map {
-                        DetectedPlate(
-                            code = it.code,
-                            confidence = it.confidence,
-                            type = it.type,
-                            x1 = it.x1,
-                            y1 = it.y1,
-                            x2 = it.x2,
-                            y2 = it.y2
-                        )
-                    }
+
+                val detected = validPlates.map {
+                    DetectedPlate(
+                        code = it.code,
+                        confidence = it.confidence,
+                        type = it.type,
+                        x1 = it.x1 * scaleX,
+                        y1 = it.y1 * scaleY,
+                        x2 = it.x2 * scaleX,
+                        y2 = it.y2 * scaleY
+                    )
+                }
                 latestFrameWidth = rotatedW
                 latestFrameHeight = rotatedH
                 latestPlates = detected
@@ -378,8 +442,16 @@ class PlateRecognizer(context: Context) {
 
                     val store = PlateEventStore.getInstance(appContext)
                     val (videoFile, videoStartMs) = videoContextProvider?.invoke() ?: (null to 0L)
-                    for (p in detected) {
-                        store.recordDetection(p, frameCopy, width, height, rotationDegrees, videoFile, videoStartMs)
+                    for (p in validPlates) {
+                        store.recordDetection(
+                            DetectedPlate(p.code, p.confidence, p.type, p.x1, p.y1, p.x2, p.y2),
+                            frameCopy,
+                            inferW,
+                            inferH,
+                            rotationDegrees,
+                            videoFile,
+                            videoStartMs
+                        )
                     }
                 }
             } catch (e: Exception) {

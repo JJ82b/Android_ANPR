@@ -653,6 +653,13 @@
 
           <p class="group-title" data-i18n="cameraControlTitle">相机控制</p>
 
+          <label for="captureApiSelect"><span data-i18n="captureApiLabel">相机 API</span> <span class="val-badge" id="captureApiNote" style="display:none;"></span></label>
+          <select id="captureApiSelect" class="camera-select" style="margin-bottom: 12px;">
+            <option value="auto" data-i18n="captureApiAuto">自动 (Camera2 / Camera1 兜底)</option>
+            <option value="camerax" data-i18n="captureApiCamera2">Camera2 (CameraX)</option>
+            <option value="camera1" data-i18n="captureApiCamera1">Camera1 (兼容模式)</option>
+          </select>
+
           <label for="resolutionSelect"><span data-i18n="resolutionLabel">分辨率</span> <span class='val-badge' id='resolutionVal'>&mdash;</span></label>
           <select id="resolutionSelect" style="margin-bottom: 20px" onchange='setResolution(this.value)'></select>
 
@@ -897,6 +904,11 @@
         limitedOn: '⚡ LIMITED GPU直出: 已开启 (实验)',
         limitedOff: '🔒 LIMITED GPU直出: 已关闭',
         cameraControlTitle: '相机控制',
+        captureApiLabel: '相机 API',
+        captureApiAuto: '自动 (Camera2 / Camera1 兜底)',
+        captureApiCamera2: 'Camera2 (CameraX)',
+        captureApiCamera1: 'Camera1 (兼容模式)',
+        captureApiFallbackBadge: '已回落 Camera1',
         resolutionLabel: '分辨率',
         zoomLabel: '变焦',
         exposureLabel: '曝光补偿',
@@ -1001,6 +1013,11 @@
         limitedOn: '⚡ LIMITED GPU Surface: ON (Exp)',
         limitedOff: '🔒 LIMITED GPU Surface: OFF',
         cameraControlTitle: 'Camera Control',
+        captureApiLabel: 'Camera API',
+        captureApiAuto: 'Auto (Camera2 + Fallback)',
+        captureApiCamera2: 'Camera2 (CameraX)',
+        captureApiCamera1: 'Camera1 (Legacy)',
+        captureApiFallbackBadge: 'Fallback: Camera1',
         resolutionLabel: 'Resolution',
         zoomLabel: 'Zoom',
         exposureLabel: 'Exposure',
@@ -2178,6 +2195,28 @@
             allowLimited = !allowLimited;
             renderAllowLimitedBtn();
             sendControl('allow_limited_surface', allowLimited ? 'true' : 'false');
+          });
+        }
+      }
+      const captureApiSelect = getElById('captureApiSelect');
+      const captureApiNote = getElById('captureApiNote');
+      if (captureApiSelect && settings.captureApi !== undefined) {
+        captureApiSelect.value = settings.captureApi || 'auto';
+        const isFallback = settings.camera2Unusable === true && captureApiSelect.value !== 'camera1';
+        if (captureApiNote) {
+          captureApiNote.style.display = isFallback ? 'inline-block' : 'none';
+          captureApiNote.innerText = isFallback ? t('captureApiFallbackBadge') : '';
+        }
+        if (!captureApiSelect.dataset.bound) {
+          languageChangeListeners.push(() => {
+            if (captureApiNote && captureApiNote.style.display !== 'none') {
+              captureApiNote.innerText = t('captureApiFallbackBadge');
+            }
+          });
+          captureApiSelect.dataset.bound = '1';
+          captureApiSelect.addEventListener('change', () => {
+            if (captureApiNote) captureApiNote.style.display = 'none';
+            sendControl('api', captureApiSelect.value);
           });
         }
       }

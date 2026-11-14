@@ -1614,6 +1614,8 @@ class StreamingServerHelper(
         val motionDetectionEnabled: Boolean,
         val motionSensitivity: String,
         val onvifEnabled: Boolean,
+        val captureApi: String,
+        val camera2Unusable: Boolean,
     )
 
     private data class DeviceInfo(
@@ -1684,6 +1686,8 @@ class StreamingServerHelper(
                 put("motionSensitivity", settings.motionSensitivity)
                 // Motion detection is only exposed in the web UI when ONVIF is enabled.
                 put("onvifEnabled", settings.onvifEnabled)
+                put("captureApi", settings.captureApi)
+                put("camera2Unusable", settings.camera2Unusable)
             })
             put("appVersion", context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty())
         }.toString()
@@ -1835,6 +1839,8 @@ class StreamingServerHelper(
             motionDetectionEnabled = prefs.getBoolean("motion_detection_enabled", false),
             motionSensitivity = prefs.getString("motion_sensitivity", "5") ?: "5",
             onvifEnabled = prefs.getBoolean("rtsp_enabled", false),
+            captureApi = prefs.getString("capture_api", "auto") ?: "auto",
+            camera2Unusable = prefs.getBoolean("camera2_unusable", false),
         )
     }
 
