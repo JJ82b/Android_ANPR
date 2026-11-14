@@ -122,6 +122,7 @@ class StreamingService : LifecycleService() {
     private var pendingStartJob: kotlinx.coroutines.Job? = null
     private var torchVerifyJob: kotlinx.coroutines.Job? = null
     @Volatile private var cameraCloseStartTime: Long = 0L
+    private val plateRecognizer by lazy { com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer(this) }
 
     var onClientConnected: (() -> Unit)? = null
     var onClientDisconnected: (() -> Unit)? = null
@@ -416,15 +417,15 @@ class StreamingService : LifecycleService() {
                 onStreamingEnabledChanged = { enabled -> if (!enabled) rtspServer?.disconnectAll() },
                 // 传递车牌识别状态给前端
                 onPlateStatus = {
-                    val recognizer = (backend as? com.github.digitallyrefined.androidipcamera.helpers.CameraXCapture)?.plateRecognizer
-                    val plate = recognizer?.latestPlate ?: ""
-                    val conf = recognizer?.latestConfidence ?: 0f
-                    val ts = recognizer?.latestTimestamp ?: 0L
-                    val type = recognizer?.latestPlateType ?: com.hyperai.hyperlpr3.HyperLPR3.PLATE_TYPE_UNKNOWN
-                    val fw = recognizer?.latestFrameWidth ?: 0
-                    val fh = recognizer?.latestFrameHeight ?: 0
-                    val processTimeMs = recognizer?.latestProcessTimeMs ?: 0L
-                    val plates = recognizer?.latestPlates ?: emptyList()
+                    val recognizer = plateRecognizer
+                    val plate = recognizer.latestPlate
+                    val conf = recognizer.latestConfidence
+                    val ts = recognizer.latestTimestamp
+                    val type = recognizer.latestPlateType
+                    val fw = recognizer.latestFrameWidth
+                    val fh = recognizer.latestFrameHeight
+                    val processTimeMs = recognizer.latestProcessTimeMs
+                    val plates = recognizer.latestPlates
                     org.json.JSONObject().apply {
                         put("plate", plate)
                         put("confidence", conf.toDouble())
@@ -463,7 +464,7 @@ class StreamingService : LifecycleService() {
                         useGpu = params["useGpu"]?.let { it == "true" || it == "1" } ?: current.useGpu
                     )
                     val saved = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.saveConfig(this, updated)
-                    (backend as? com.github.digitallyrefined.androidipcamera.helpers.CameraXCapture)?.plateRecognizer?.reloadConfig(saved)
+                    plateRecognizer.reloadConfig(saved)
                     saved.toJson()
                 },
                 onLoopRecordingGet = {
@@ -988,6 +989,19 @@ class StreamingService : LifecycleService() {
         return b.hasProducedFrame
     }
 
+    private fun configuredCameraRotationDegrees(): Int {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val camId = selectedCameraId ?: prefs.getString("camera_id", null) ?: return 0
+        val phys = camId.substringAfter(':', camId)
+        val raw = when {
+            prefs.contains("camera_rotate_$camId") -> prefs.getInt("camera_rotate_$camId", 0)
+            prefs.contains("camera_rotate_$phys") -> prefs.getInt("camera_rotate_$phys", 0)
+            else -> 0
+        }
+        val norm = ((raw % 360) + 360) % 360
+        return ((Math.round(norm / 90f) * 90) % 360 + 360) % 360
+    }
+
     private fun startCamera1Backend(want: Size) {
         // Camera1 → GL pipe → surface encoder (true 1920×1080 on legacy HALs).
         val cap = Camera1Capture(camera1IndexForSelectedOrFacing(frontFacing), want.width, want.height)
@@ -995,10 +1009,17 @@ class StreamingService : LifecycleService() {
         cap.start(pipe.surfaceTexture)
         val mjpeg = mjpegStreamingEncoder?.takeIf { it.hasClients() }
         val motion = motionMonitor?.takeIf { it.enabled }
-        if (mjpeg != null || motion != null) {
-            cap.setPreviewFrameCallback { nv21 ->
-                mjpeg?.processNv21Frame(nv21, cap.chosenW, cap.chosenH)
-                motion?.processNv21Frame(nv21, cap.chosenW, cap.chosenH)
+        val recognizer = plateRecognizer
+        cap.setPreviewFrameCallback { nv21 ->
+            mjpeg?.processNv21Frame(nv21, cap.chosenW, cap.chosenH)
+            motion?.processNv21Frame(nv21, cap.chosenW, cap.chosenH)
+            if (recognizer.canProcessNow()) {
+                recognizer.processNv21Async(
+                    nv21Source = nv21,
+                    width = cap.chosenW,
+                    height = cap.chosenH,
+                    rotationDegrees = configuredCameraRotationDegrees()
+                )
             }
         }
         backend = cap
@@ -1079,7 +1100,8 @@ class StreamingService : LifecycleService() {
             onEncoderSurfaceFallback = {
                 Log.i(TAG, "CameraX SurfaceProvider fallback triggered: switching H.264 to software YUV mode")
                 h264?.setEncoder(null)
-            }
+            },
+            sharedPlateRecognizer = plateRecognizer
         ) { img ->
             try {
                 // Motion detection reads the luma plane without disturbing the encoders' buffers.

@@ -57,10 +57,11 @@ class CameraXCapture(
     private val previewSurfaceProvider: Preview.SurfaceProvider? = null,
     private val encoderSurfaceProvider: Preview.SurfaceProvider? = null,
     private val onEncoderSurfaceFallback: (() -> Unit)? = null,
+    private val sharedPlateRecognizer: PlateRecognizer? = null,
     private val onFrame: (ImageProxy) -> Unit
 ) : CaptureBackend {
 
-    val plateRecognizer by lazy { PlateRecognizer(ctx) }
+    val plateRecognizer by lazy { sharedPlateRecognizer ?: PlateRecognizer(ctx) }
 
     @Volatile override var width = desired.width; private set
     @Volatile override var height = desired.height; private set

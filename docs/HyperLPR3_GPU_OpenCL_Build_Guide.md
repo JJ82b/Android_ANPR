@@ -55,7 +55,7 @@
 4. **`cpp/src/inference_helper_module/inference_helper_mnn.cpp`**：将 MNN `ScheduleConfig` 配置为：
    - `scheduleConfig.type = MNN_FORWARD_OPENCL;`
    - `scheduleConfig.backupType = MNN_FORWARD_CPU;`
-   - `BackendConfig`：`Power_High`、`Precision_Low`。
+   - `BackendConfig`：`Power_Normal`、`Precision_Normal`（避免 Mali GPU 触发 `CL_INVALID_KERNEL` 及高通 GPU `Power_High` 锁频高功耗）。
 
 ### 3.3 编译并裁剪 `libhyperlpr3_gpu.so`
 
@@ -89,7 +89,26 @@
 
 ---
 
-## 5. 注意事项与待真机验证项
+## 5. Mali GPU 兼容性修复与防卡死保护
+
+### 5.1 Mali-G72 `CL_INVALID_KERNEL (-48)` 问题与修复
+- **现象**：在 Honor 10（`COL-AL10`，Mali-G72 GPU）上启用 GPU 推理时，logcat 持续输出 `MNNJNI: CL ERROR CODE : -48`（`BinaryOp`、`run2d`、`run3d`、`Raster` 等算子），识别无输出。
+- **根因**：查看 `third_party/MNN/source/backend/opencl/core/runtime/OpenCLRuntime.cpp`（第 147–161 行）可知：
+  - 当 `precision == BackendConfig::Precision_Low` 时，MNN 会开启 `mIsSupportedFP16 = true`（使用 `half` / `half4` 编译 OpenCL Kernel）；
+  - 且对于 Mali GPU，当 `mGpuType == MALI && precision != BackendConfig::Precision_Normal` 时，MNN 会将 `mMemType` 设为 `BUFFER` 模式。部分 Mali OpenCL 驱动在该组合下编译/执行 Kernel 失败，返回 `CL_INVALID_KERNEL (-48)`。
+- **修复**：在 [inference_helper_mnn.cpp](file:///home/chunxiaobian/Projects/Android_ANPR/third_party/HyperLPR/cpp/src/inference_helper_module/inference_helper_mnn.cpp#L161-L164) 两处 `Initialize` 重载中，将 `BackendConfig` 改为：
+  - `bnconfig.power = MNN::BackendConfig::Power_Normal;`（同时避免高通 Adreno GPU 在 `Power_High` 下持续锁高频高功耗）
+  - `bnconfig.precision = MNN::BackendConfig::Precision_Normal;`（使 Mali 走 FP32 + `IMAGE` 模式）
+  并重新编译、裁剪更新 `app/src/main/jniLibs/arm64-v8a/libhyperlpr3_gpu.so`。
+
+### 5.2 回落 CPU 防卡死保护
+- 在 [PlateRecognizer.kt](file:///home/chunxiaobian/Projects/Android_ANPR/app/src/main/kotlin/com/github/digitallyrefined/androidipcamera/helpers/PlateRecognizer.kt) 中记录 `currentTaskStartedAtMs`：
+  - `reloadConfig()` 检测到原单线程 `inferExecutor` 阻塞超过 **1500ms** 时，直接放弃阻塞线程并重建新的单线程执行器，确保切回 CPU 立即生效。
+  - `canProcessNow()` 与 `processNv21Async()` 检测到 GPU 推理阻塞超过 **5000ms** 时，自动调用 `reloadConfig(..., useGpu = false)` 回落至 CPU 后端。
+
+---
+
+## 6. 注意事项与待真机验证项
 
 - 当前仅编译打包了 `arm64-v8a` 架构的 `libhyperlpr3_gpu.so`；非 `arm64-v8a` 设备会自动隐藏/禁用 GPU 切换并安全保持 CPU 模式。
-- OpenCL 首次初始化可能会触发 GPU shader 编译（通常仅首帧或首次创建会话较慢），后续帧推理耗时与硬件 GPU 驱动兼容性需在目标 `arm64-v8a` 真机上实测对比。
+- 本次重新打包 `packageDebug` 已通过；因当前未连接测试真机，修改后的 `Precision_Normal` + `Power_Normal` 版 `libhyperlpr3_gpu.so` 在 Mali-G72 与高通设备上的实际推理耗时与功耗表现需上机实测确认。

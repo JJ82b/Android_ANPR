@@ -215,7 +215,12 @@ class PlateRecognizer(context: Context) {
     init {
         val initialConfig = loadConfig(appContext)
         inferExecutor.execute {
-            ensureInitialized(appContext, initialConfig)
+            currentTaskStartedAtMs = System.currentTimeMillis()
+            try {
+                ensureInitialized(appContext, initialConfig)
+            } finally {
+                currentTaskStartedAtMs = 0L
+            }
         }
     }
 
@@ -265,8 +270,17 @@ class PlateRecognizer(context: Context) {
      * 现：接受NV21数据进行车牌识别，避免了重复转换
      */
 
-    fun canProcessNow(): Boolean =
-        !isProcessing.get() && (System.currentTimeMillis() - lastRunTimeMs >= currentIntervalMs)
+    fun canProcessNow(): Boolean {
+        val now = System.currentTimeMillis()
+        val taskStart = currentTaskStartedAtMs
+        if (customGpuCore != null && taskStart > 0L && now - taskStart > 5000L && !gpuAutoFallbackTriggered) {
+            gpuAutoFallbackTriggered = true
+            Log.w("ALPR", "GPU 推理阻塞超过 5000ms，自动回落至 CPU 后端")
+            reloadConfig(loadConfig(appContext).copy(useGpu = false))
+            return false
+        }
+        return !isProcessing.get() && (now - lastRunTimeMs >= currentIntervalMs)
+    }
 
     fun processNv21Async(
         nv21Source: ByteArray,
