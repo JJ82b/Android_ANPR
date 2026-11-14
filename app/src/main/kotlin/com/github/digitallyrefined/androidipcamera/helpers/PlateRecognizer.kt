@@ -354,7 +354,8 @@ class PlateRecognizer(context: Context) {
         }
         lastRunTimeMs = now
 
-        val useHalfScale = (width >= 1280 || height >= 1280) && width >= 4 && height >= 4
+        // 1080p 及以下直接走 System.arraycopy 进双缓冲（零 Kotlin 字节循环开销）；仅 2K/4K(>=2560) 开启 1/2 降采样
+        val useHalfScale = (width >= 2560 || height >= 2560) && width >= 4 && height >= 4
         val inferW = if (useHalfScale) ((width shr 1) and 1.inv()) else width
         val inferH = if (useHalfScale) ((height shr 1) and 1.inv()) else height
         val requiredBytes = inferW * inferH * 3 / 2

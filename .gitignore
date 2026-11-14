@@ -19,3 +19,6 @@ certificates
 
 # local build helpers (machine-specific paths)
 _wsl_*.sh
+
+# Third-party source & build artifacts (large binaries)
+third_party/
