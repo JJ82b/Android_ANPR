@@ -31,10 +31,26 @@ class TlsServerConfig(
         address: InetAddress = InetAddress.getByName("0.0.0.0"),
         soTimeout: Int = 0
     ): ServerSocket {
-        // The three-argument factory method is implemented by every platform (including Android);
-        // the unbound no-argument variant is not.
-        val socket = serverSocketFactory.createServerSocket(port, backlog, address) as SSLServerSocket
-        socket.reuseAddress = true
+        // Prefer unbound socket so SO_REUSEADDR is set before bind() (avoids EADDRINUSE on TIME_WAIT).
+        val unbound = try {
+            serverSocketFactory.createServerSocket() as SSLServerSocket
+        } catch (_: UnsupportedOperationException) {
+            null
+        }
+        val socket = if (unbound != null) {
+            try {
+                unbound.reuseAddress = true
+                unbound.bind(java.net.InetSocketAddress(address, port), backlog)
+                unbound
+            } catch (e: Exception) {
+                try { unbound.close() } catch (_: Exception) {}
+                throw e
+            }
+        } else {
+            (serverSocketFactory.createServerSocket(port, backlog, address) as SSLServerSocket).apply {
+                reuseAddress = true
+            }
+        }
         // Negotiate only the configured version, like the web server does.
         socket.enabledProtocols = arrayOf(protocol)
         // Don't restrict cipher suites - let the system negotiate.

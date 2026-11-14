@@ -245,7 +245,8 @@ class StreamingServerHelper(
             } catch (e: IOException) {
                 lastError = e
                 val msg = e.message ?: ""
-                val isBindError = msg.contains("Address already in use") ||
+                val isBindError = e is java.net.BindException ||
+                    msg.contains("address already in use", ignoreCase = true) ||
                     msg.contains("BindException") ||
                     msg.contains("errno = 48") ||
                     msg.contains("EADDRINUSE")

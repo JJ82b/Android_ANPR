@@ -579,6 +579,12 @@
             <span id="alpr-meta" style="font-size: 12px; color: #cbd5e1;"></span>
           </div>
           <div id="alpr-adv-panel" style="display: none; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(148,163,184,0.3); color: #e2e8f0;">
+            <label for="alprBackend" data-i18n="alprBackend">推理后端 (Backend)</label>
+            <select id="alprBackend" class="camera-select" style="margin-bottom: 10px;">
+              <option value="cpu" data-i18n="alprBackendCpu">CPU (libhyperlpr3.so)</option>
+              <option value="gpu" data-i18n="alprBackendGpu">GPU OpenCL (libhyperlpr3_gpu.so)</option>
+            </select>
+
             <label for="alprDetLevel" data-i18n="alprDetLevel">检测精度 (DetLevel)</label>
             <select id="alprDetLevel" class="camera-select" style="margin-bottom: 10px;">
               <option value="1" data-i18n="alprDetHigh">高精度 (DETECT_LEVEL_HIGH)</option>
@@ -866,6 +872,9 @@
         alprTitle: 'ALPR 车牌识别',
         alprAdvToggle: '高级选项 ▾',
         alprWaiting: '等待检测...',
+        alprBackend: '推理后端 (Backend)',
+        alprBackendCpu: 'CPU (libhyperlpr3.so)',
+        alprBackendGpu: 'GPU OpenCL (libhyperlpr3_gpu.so)',
         alprDetLevel: '检测精度 (DetLevel)',
         alprDetHigh: '高精度 (DETECT_LEVEL_HIGH)',
         alprDetLow: '低功耗 (DETECT_LEVEL_LOW)',
@@ -967,6 +976,9 @@
         alprTitle: 'ALPR Plate',
         alprAdvToggle: 'Advanced ▾',
         alprWaiting: 'Waiting...',
+        alprBackend: 'Inference Backend',
+        alprBackendCpu: 'CPU (libhyperlpr3.so)',
+        alprBackendGpu: 'GPU OpenCL (libhyperlpr3_gpu.so)',
         alprDetLevel: 'Detection Level (DetLevel)',
         alprDetHigh: 'High Accuracy (DETECT_LEVEL_HIGH)',
         alprDetLow: 'Low Power (DETECT_LEVEL_LOW)',
@@ -2738,6 +2750,7 @@
     (function initAlprAdvancedPanel() {
       const toggleBtn = getElById('alpr-adv-toggle');
       const panel = getElById('alpr-adv-panel');
+      const backendEl = getElById('alprBackend');
       const detLevelEl = getElById('alprDetLevel');
       const maxNumEl = getElById('alprMaxNum');
       const maxNumValEl = getElById('alprMaxNumVal');
@@ -2768,6 +2781,11 @@
 
       function applyFromConfig(cfg) {
         if (!cfg || typeof cfg.detLevel === 'undefined') return;
+        if (backendEl) {
+          const gpuOpt = backendEl.querySelector('option[value="gpu"]');
+          if (gpuOpt) gpuOpt.disabled = (cfg.gpuAvailable === false);
+          backendEl.value = (cfg.useGpu && cfg.gpuAvailable !== false) ? 'gpu' : 'cpu';
+        }
         if (detLevelEl) detLevelEl.value = String(cfg.detLevel);
         if (maxNumEl) maxNumEl.value = String(cfg.maxNum);
         if (boxConfEl) boxConfEl.value = Number(cfg.boxConfThreshold).toFixed(2);
@@ -2791,6 +2809,7 @@
       if (applyBtn) {
         applyBtn.addEventListener('click', () => {
           const qs = new URLSearchParams({
+            useGpu: (backendEl && backendEl.value === 'gpu') ? 'true' : 'false',
             detLevel: detLevelEl ? detLevelEl.value : '1',
             maxNum: maxNumEl ? maxNumEl.value : '3',
             boxConfThreshold: boxConfEl ? boxConfEl.value : '0.20',

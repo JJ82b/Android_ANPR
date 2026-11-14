@@ -260,7 +260,9 @@ class StreamingService : LifecycleService() {
         motionMonitor?.detector?.reset()
         stopOnvif()
         releasePowerLocks()
-        lifecycleScope.launch(Dispatchers.IO) { streamingServerHelper?.stopStreamingServer() }
+        streamingServerHelper?.let { helper ->
+            Thread { kotlinx.coroutines.runBlocking { helper.stopStreamingServer() } }.start()
+        }
     }
 
     private fun acquirePowerLocks() {
@@ -457,7 +459,8 @@ class StreamingService : LifecycleService() {
                         boxConfThreshold = params["boxConfThreshold"]?.toFloatOrNull() ?: current.boxConfThreshold,
                         recConfidenceThreshold = params["recConfidenceThreshold"]?.toFloatOrNull() ?: current.recConfidenceThreshold,
                         threads = params["threads"]?.toIntOrNull() ?: current.threads,
-                        intervalMs = params["intervalMs"]?.toLongOrNull() ?: current.intervalMs
+                        intervalMs = params["intervalMs"]?.toLongOrNull() ?: current.intervalMs,
+                        useGpu = params["useGpu"]?.let { it == "true" || it == "1" } ?: current.useGpu
                     )
                     val saved = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.saveConfig(this, updated)
                     (backend as? com.github.digitallyrefined.androidipcamera.helpers.CameraXCapture)?.plateRecognizer?.reloadConfig(saved)
