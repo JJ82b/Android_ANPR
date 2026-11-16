@@ -139,6 +139,13 @@ class Camera1Capture(private val cameraId: Int, targetW: Int, targetH: Int) : Ca
         val lo = p.minExposureCompensation; val hi = p.maxExposureCompensation
         if (lo != hi) p.exposureCompensation = ev.coerceIn(lo, hi)
     }
+
+    override fun setManualExposure(iso: Int, exposureTimeNs: Long) = live { p ->
+        val isoValues = p.get("iso-values")
+        if (!isoValues.isNullOrBlank()) {
+            p.set("iso", if (iso <= 0) "auto" else iso.toString())
+        }
+    }
     override fun setZoom(ratio: Float) = live { p ->
         if (p.isZoomSupported) {
             val want = (ratio * 100).toInt(); val r = p.zoomRatios

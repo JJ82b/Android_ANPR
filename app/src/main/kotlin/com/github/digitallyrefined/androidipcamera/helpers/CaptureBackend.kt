@@ -29,5 +29,9 @@ interface CaptureBackend {
      * continuous autofocus. Backends apply this on a best-effort basis.
      */
     fun setManualFocus(distance: Float)
+    /**
+     * Manual ISO & shutter speed. [iso] <= 0 and [exposureTimeNs] <= 0 restores auto-exposure (AE).
+     */
+    fun setManualExposure(iso: Int, exposureTimeNs: Long) {}
     fun stop()
 }

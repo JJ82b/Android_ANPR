@@ -35,11 +35,23 @@ data class AlprConfig(
     val roiW: Float = 1.0f,
     val roiH: Float = 0.75f,
     val motionCropEnabled: Boolean = false,
-    val motionTorchEnabled: Boolean = false
+    val motionTorchEnabled: Boolean = false,
+    val flashCaptureEnabled: Boolean = false,
+    val flashCaptureIso: Int = 200,
+    val flashCaptureShutterNs: Long = 2_000_000L,
+    val motionDiffThreshold: Float = 20.0f,
+    val motionAreaRatio: Float = 0.05f,
+    val motionBgAlpha: Float = 0.05f,
+    val motionCropMinCells: Int = 6,
+    val motionCropPadRatio: Float = 0.28f,
+    val motionBackoffMs: Long = 1000L,
+    val motionTorchHoldMs: Long = 5000L,
+    val torchSettleMs: Long = 1000L,
+    val motionGlobalJumpRatio: Float = 0.75f
 ) {
     fun toJson(): String = String.format(
         Locale.US,
-        """{"detLevel":%d,"maxNum":%d,"boxConfThreshold":%.2f,"recConfidenceThreshold":%.2f,"threads":%d,"intervalMs":%d,"useGpu":%b,"gpuAvailable":%b,"motionGateEnabled":%b,"roiEnabled":%b,"roiX":%.2f,"roiY":%.2f,"roiW":%.2f,"roiH":%.2f,"motionCropEnabled":%b,"motionTorchEnabled":%b}""",
+        """{"detLevel":%d,"maxNum":%d,"boxConfThreshold":%.2f,"recConfidenceThreshold":%.2f,"threads":%d,"intervalMs":%d,"useGpu":%b,"gpuAvailable":%b,"motionGateEnabled":%b,"roiEnabled":%b,"roiX":%.2f,"roiY":%.2f,"roiW":%.2f,"roiH":%.2f,"motionCropEnabled":%b,"motionTorchEnabled":%b,"flashCaptureEnabled":%b,"flashCaptureIso":%d,"flashCaptureShutterNs":%d,"motionDiffThreshold":%.0f,"motionAreaRatio":%.2f,"motionBgAlpha":%.2f,"motionCropMinCells":%d,"motionCropPadRatio":%.2f,"motionBackoffMs":%d,"motionTorchHoldMs":%d,"torchSettleMs":%d,"motionGlobalJumpRatio":%.2f}""",
         detLevel,
         maxNum,
         boxConfThreshold,
@@ -55,7 +67,19 @@ data class AlprConfig(
         roiW,
         roiH,
         motionCropEnabled,
-        motionTorchEnabled
+        motionTorchEnabled,
+        flashCaptureEnabled,
+        flashCaptureIso,
+        flashCaptureShutterNs,
+        motionDiffThreshold,
+        motionAreaRatio,
+        motionBgAlpha,
+        motionCropMinCells,
+        motionCropPadRatio,
+        motionBackoffMs,
+        motionTorchHoldMs,
+        torchSettleMs,
+        motionGlobalJumpRatio
     )
 }
 
@@ -120,6 +144,10 @@ class PlateRecognizer(context: Context) {
     
     private val isProcessing = AtomicBoolean(false)
     private var lastRunTimeMs = 0L
+    @Volatile private var torchTransitionUntilMs = 0L
+    @Volatile private var torchTransitionSuppressMotion = false
+    @Volatile private var pendingBgReseed = false
+    @Volatile private var suppressSeedMotion = false
     private val snapshotBuffers = arrayOfNulls<ByteArray>(2)
     private var snapshotIndex = 0
     private val lumaBg = FloatArray(LUMA_GRID_W * LUMA_GRID_H)
@@ -151,6 +179,18 @@ class PlateRecognizer(context: Context) {
         private const val PREF_ROI_H = "alpr_roi_h"
         private const val PREF_MOTION_CROP = "alpr_motion_crop_enabled"
         private const val PREF_MOTION_TORCH = "alpr_motion_torch_enabled"
+        private const val PREF_FLASH_CAPTURE = "alpr_flash_capture_enabled"
+        private const val PREF_FLASH_CAPTURE_ISO = "alpr_flash_capture_iso"
+        private const val PREF_FLASH_CAPTURE_SHUTTER_NS = "alpr_flash_capture_shutter_ns"
+        private const val PREF_MOTION_DIFF_THRESHOLD = "alpr_motion_diff_threshold"
+        private const val PREF_MOTION_AREA_RATIO = "alpr_motion_area_ratio"
+        private const val PREF_MOTION_BG_ALPHA = "alpr_motion_bg_alpha"
+        private const val PREF_MOTION_CROP_MIN_CELLS = "alpr_motion_crop_min_cells"
+        private const val PREF_MOTION_CROP_PAD_RATIO = "alpr_motion_crop_pad_ratio"
+        private const val PREF_MOTION_BACKOFF_MS = "alpr_motion_backoff_ms"
+        private const val PREF_MOTION_TORCH_HOLD_MS = "alpr_motion_torch_hold_ms"
+        private const val PREF_TORCH_SETTLE_MS = "alpr_torch_settle_ms"
+        private const val PREF_MOTION_GLOBAL_JUMP_RATIO = "alpr_motion_global_jump_ratio"
 
         private const val DEFAULT_DET_LEVEL = HyperLPR3.DETECT_LEVEL_HIGH
         private const val DEFAULT_MAX_NUM = 3
@@ -166,19 +206,24 @@ class PlateRecognizer(context: Context) {
         private const val DEFAULT_ROI_H = 0.75f
         private const val DEFAULT_MOTION_CROP = false
         private const val DEFAULT_MOTION_TORCH = false
-        private const val AUTO_TORCH_HOLD_MS = 5000L
+        private const val DEFAULT_FLASH_CAPTURE = false
+        private const val DEFAULT_FLASH_CAPTURE_ISO = 200
+        private const val DEFAULT_FLASH_CAPTURE_SHUTTER_NS = 2_000_000L
+        private const val DEFAULT_MOTION_DIFF_THRESHOLD = 20.0f
+        private const val DEFAULT_MOTION_AREA_RATIO = 0.05f
+        private const val DEFAULT_MOTION_BG_ALPHA = 0.05f
+        private const val DEFAULT_MOTION_CROP_MIN_CELLS = 6
+        private const val DEFAULT_MOTION_CROP_PAD_RATIO = 0.28f
+        private const val DEFAULT_MOTION_BACKOFF_MS = 1000L
+        private const val DEFAULT_MOTION_TORCH_HOLD_MS = 5000L
+        private const val DEFAULT_TORCH_SETTLE_MS = 1000L
+        private const val DEFAULT_MOTION_GLOBAL_JUMP_RATIO = 0.75f
 
         private const val LUMA_GRID_W = 32
         private const val LUMA_GRID_H = 18
-        private const val LUMA_PIXEL_DIFF_THRESHOLD = 14.0f
-        private const val LUMA_CHANGED_RATIO_THRESHOLD = 0.03f
-        private const val LUMA_BG_ALPHA = 0.05f
-        private const val MOTION_CROP_MIN_CELLS = 4
         private const val MOTION_CROP_MAX_RATIO = 0.55f
-        private const val MOTION_CROP_PAD_RATIO = 0.28f
         private const val MOTION_CROP_MIN_W = 640
         private const val MOTION_CROP_MIN_H = 360
-        private const val STATIC_CHECK_BACKOFF_MS = 1000L
         private const val STATIC_HEARTBEAT_INTERVAL = 8
 
         // 共享单线程推理/生命周期执行器，避免 CameraXCapture 重建时重复初始化或并发访问 native 上下文
@@ -199,6 +244,15 @@ class PlateRecognizer(context: Context) {
         @Volatile private var currentRoiH: Float = DEFAULT_ROI_H
         @Volatile private var currentMotionCropEnabled: Boolean = DEFAULT_MOTION_CROP
         @Volatile private var currentMotionTorchEnabled: Boolean = DEFAULT_MOTION_TORCH
+        @Volatile private var currentMotionDiffThreshold: Float = DEFAULT_MOTION_DIFF_THRESHOLD
+        @Volatile private var currentMotionAreaRatio: Float = DEFAULT_MOTION_AREA_RATIO
+        @Volatile private var currentMotionBgAlpha: Float = DEFAULT_MOTION_BG_ALPHA
+        @Volatile private var currentMotionCropMinCells: Int = DEFAULT_MOTION_CROP_MIN_CELLS
+        @Volatile private var currentMotionCropPadRatio: Float = DEFAULT_MOTION_CROP_PAD_RATIO
+        @Volatile private var currentMotionBackoffMs: Long = DEFAULT_MOTION_BACKOFF_MS
+        @Volatile private var currentMotionTorchHoldMs: Long = DEFAULT_MOTION_TORCH_HOLD_MS
+        @Volatile private var currentTorchSettleMs: Long = DEFAULT_TORCH_SETTLE_MS
+        @Volatile private var currentMotionGlobalJumpRatio: Float = DEFAULT_MOTION_GLOBAL_JUMP_RATIO
         @Volatile var videoContextProvider: (() -> Pair<String?, Long>)? = null
 
         private fun defaultThreads(): Int =
@@ -222,9 +276,24 @@ class PlateRecognizer(context: Context) {
             val roiH = prefs.getFloat(PREF_ROI_H, DEFAULT_ROI_H).coerceIn(0.1f, 1.0f - roiY)
             val motionCrop = prefs.getBoolean(PREF_MOTION_CROP, DEFAULT_MOTION_CROP)
             val motionTorch = prefs.getBoolean(PREF_MOTION_TORCH, DEFAULT_MOTION_TORCH)
+            val flashCapture = prefs.getBoolean(PREF_FLASH_CAPTURE, DEFAULT_FLASH_CAPTURE)
+            val flashIso = prefs.getInt(PREF_FLASH_CAPTURE_ISO, DEFAULT_FLASH_CAPTURE_ISO).coerceIn(50, 6400)
+            val flashShutter = prefs.getLong(PREF_FLASH_CAPTURE_SHUTTER_NS, DEFAULT_FLASH_CAPTURE_SHUTTER_NS).coerceIn(100_000L, 100_000_000L)
+            val motionDiff = prefs.getFloat(PREF_MOTION_DIFF_THRESHOLD, DEFAULT_MOTION_DIFF_THRESHOLD).coerceIn(5f, 60f)
+            val motionArea = prefs.getFloat(PREF_MOTION_AREA_RATIO, DEFAULT_MOTION_AREA_RATIO).coerceIn(0.01f, 0.30f)
+            val motionAlpha = prefs.getFloat(PREF_MOTION_BG_ALPHA, DEFAULT_MOTION_BG_ALPHA).coerceIn(0.01f, 0.30f)
+            val motionMinCells = prefs.getInt(PREF_MOTION_CROP_MIN_CELLS, DEFAULT_MOTION_CROP_MIN_CELLS).coerceIn(2, 30)
+            val motionPad = prefs.getFloat(PREF_MOTION_CROP_PAD_RATIO, DEFAULT_MOTION_CROP_PAD_RATIO).coerceIn(0.05f, 0.60f)
+            val motionBackoff = prefs.getLong(PREF_MOTION_BACKOFF_MS, DEFAULT_MOTION_BACKOFF_MS).coerceIn(300L, 3000L)
+            val motionTorchHold = prefs.getLong(PREF_MOTION_TORCH_HOLD_MS, DEFAULT_MOTION_TORCH_HOLD_MS).coerceIn(1000L, 15000L)
+            val torchSettle = prefs.getLong(PREF_TORCH_SETTLE_MS, DEFAULT_TORCH_SETTLE_MS).coerceIn(300L, 3000L)
+            val globalJump = prefs.getFloat(PREF_MOTION_GLOBAL_JUMP_RATIO, DEFAULT_MOTION_GLOBAL_JUMP_RATIO).coerceIn(0.50f, 0.95f)
             return AlprConfig(
                 detLevel, maxNum, boxConf, recConf, threads, intervalMs, useGpu, motionGate,
-                roiEnabled, roiX, roiY, roiW, roiH, motionCrop, motionTorch
+                roiEnabled, roiX, roiY, roiW, roiH, motionCrop, motionTorch,
+                flashCapture, flashIso, flashShutter,
+                motionDiff, motionArea, motionAlpha, motionMinCells, motionPad, motionBackoff, motionTorchHold,
+                torchSettle, globalJump
             )
         }
 
@@ -246,7 +315,19 @@ class PlateRecognizer(context: Context) {
                 roiW = config.roiW.coerceIn(0.1f, 1.0f - safeRoiX),
                 roiH = config.roiH.coerceIn(0.1f, 1.0f - safeRoiY),
                 motionCropEnabled = config.motionCropEnabled,
-                motionTorchEnabled = config.motionTorchEnabled
+                motionTorchEnabled = config.motionTorchEnabled,
+                flashCaptureEnabled = config.flashCaptureEnabled,
+                flashCaptureIso = config.flashCaptureIso.coerceIn(50, 6400),
+                flashCaptureShutterNs = config.flashCaptureShutterNs.coerceIn(100_000L, 100_000_000L),
+                motionDiffThreshold = config.motionDiffThreshold.coerceIn(5f, 60f),
+                motionAreaRatio = config.motionAreaRatio.coerceIn(0.01f, 0.30f),
+                motionBgAlpha = config.motionBgAlpha.coerceIn(0.01f, 0.30f),
+                motionCropMinCells = config.motionCropMinCells.coerceIn(2, 30),
+                motionCropPadRatio = config.motionCropPadRatio.coerceIn(0.05f, 0.60f),
+                motionBackoffMs = config.motionBackoffMs.coerceIn(300L, 3000L),
+                motionTorchHoldMs = config.motionTorchHoldMs.coerceIn(1000L, 15000L),
+                torchSettleMs = config.torchSettleMs.coerceIn(300L, 3000L),
+                motionGlobalJumpRatio = config.motionGlobalJumpRatio.coerceIn(0.50f, 0.95f)
             )
             PreferenceManager.getDefaultSharedPreferences(context).edit()
                 .putInt(PREF_DET_LEVEL, sanitized.detLevel)
@@ -264,6 +345,18 @@ class PlateRecognizer(context: Context) {
                 .putFloat(PREF_ROI_H, sanitized.roiH)
                 .putBoolean(PREF_MOTION_CROP, sanitized.motionCropEnabled)
                 .putBoolean(PREF_MOTION_TORCH, sanitized.motionTorchEnabled)
+                .putBoolean(PREF_FLASH_CAPTURE, sanitized.flashCaptureEnabled)
+                .putInt(PREF_FLASH_CAPTURE_ISO, sanitized.flashCaptureIso)
+                .putLong(PREF_FLASH_CAPTURE_SHUTTER_NS, sanitized.flashCaptureShutterNs)
+                .putFloat(PREF_MOTION_DIFF_THRESHOLD, sanitized.motionDiffThreshold)
+                .putFloat(PREF_MOTION_AREA_RATIO, sanitized.motionAreaRatio)
+                .putFloat(PREF_MOTION_BG_ALPHA, sanitized.motionBgAlpha)
+                .putInt(PREF_MOTION_CROP_MIN_CELLS, sanitized.motionCropMinCells)
+                .putFloat(PREF_MOTION_CROP_PAD_RATIO, sanitized.motionCropPadRatio)
+                .putLong(PREF_MOTION_BACKOFF_MS, sanitized.motionBackoffMs)
+                .putLong(PREF_MOTION_TORCH_HOLD_MS, sanitized.motionTorchHoldMs)
+                .putLong(PREF_TORCH_SETTLE_MS, sanitized.torchSettleMs)
+                .putFloat(PREF_MOTION_GLOBAL_JUMP_RATIO, sanitized.motionGlobalJumpRatio)
                 .apply()
             return sanitized
         }
@@ -320,6 +413,15 @@ class PlateRecognizer(context: Context) {
             currentRoiH = config.roiH
             currentMotionCropEnabled = config.motionCropEnabled
             currentMotionTorchEnabled = config.motionTorchEnabled
+            currentMotionDiffThreshold = config.motionDiffThreshold
+            currentMotionAreaRatio = config.motionAreaRatio
+            currentMotionBgAlpha = config.motionBgAlpha
+            currentMotionCropMinCells = config.motionCropMinCells
+            currentMotionCropPadRatio = config.motionCropPadRatio
+            currentMotionBackoffMs = config.motionBackoffMs
+            currentMotionTorchHoldMs = config.motionTorchHoldMs
+            currentTorchSettleMs = config.torchSettleMs
+            currentMotionGlobalJumpRatio = config.motionGlobalJumpRatio
             if (sdkInitialized) return
             try {
                 val param = buildParameter(config, null)
@@ -364,6 +466,15 @@ class PlateRecognizer(context: Context) {
         currentRoiH = saved.roiH
         currentMotionCropEnabled = saved.motionCropEnabled
         currentMotionTorchEnabled = saved.motionTorchEnabled
+        currentMotionDiffThreshold = saved.motionDiffThreshold
+        currentMotionAreaRatio = saved.motionAreaRatio
+        currentMotionBgAlpha = saved.motionBgAlpha
+        currentMotionCropMinCells = saved.motionCropMinCells
+        currentMotionCropPadRatio = saved.motionCropPadRatio
+        currentMotionBackoffMs = saved.motionBackoffMs
+        currentMotionTorchHoldMs = saved.motionTorchHoldMs
+        currentTorchSettleMs = saved.torchSettleMs
+        currentMotionGlobalJumpRatio = saved.motionGlobalJumpRatio
         if ((!saved.motionGateEnabled || !saved.motionTorchEnabled) && autoTorchActive) {
             autoTorchActive = false
             onMotionTorchChanged?.invoke(false)
@@ -471,6 +582,15 @@ class PlateRecognizer(context: Context) {
         return sx.coerceIn(0, width - 1) to sy.coerceIn(0, height - 1)
     }
 
+    fun notifyTorchTransition(turnedOn: Boolean, settleMs: Long = currentTorchSettleMs) {
+        torchTransitionUntilMs = System.currentTimeMillis() + settleMs
+        torchTransitionSuppressMotion = !turnedOn
+        pendingBgReseed = true
+        if (!turnedOn) {
+            suppressSeedMotion = true
+        }
+    }
+
     /**
      * 在活动 ROI 内采样 32×18 亮度网格，采用“AE 亮度漂移补偿 + 慢速自适应背景”检测运动，
      * 并通过最大连通域聚类估算移动车辆外接框（支持大外扩、最小尺寸兜底与异常回退）。
@@ -489,6 +609,15 @@ class PlateRecognizer(context: Context) {
         val gridKey = "${width}x${height}r${rotationDegrees}_${roi.x1}_${roi.y1}_${roi.x2}_${roi.y2}"
         if (gridKey != lastGridKey) {
             lastGridKey = gridKey
+            hasLumaGrid = false
+        }
+        val nowMs = System.currentTimeMillis()
+        if (nowMs < torchTransitionUntilMs) {
+            hasLumaGrid = false
+            return MotionAnalysis(hasMotion = !torchTransitionSuppressMotion, cropNorm = null)
+        }
+        if (pendingBgReseed) {
+            pendingBgReseed = false
             hasLumaGrid = false
         }
 
@@ -513,21 +642,30 @@ class PlateRecognizer(context: Context) {
         if (!hasLumaGrid) {
             lumaCur.copyInto(lumaBg)
             hasLumaGrid = true
-            return MotionAnalysis(hasMotion = true, cropNorm = null)
+            val triggerMotion = !suppressSeedMotion
+            suppressSeedMotion = false
+            return MotionAnalysis(hasMotion = triggerMotion, cropNorm = null)
         }
 
         val shift = shiftSum / totalSamples
+        val diffThreshold = currentMotionDiffThreshold
+        val bgAlpha = currentMotionBgAlpha
         var changedCount = 0
         for (i in 0 until totalSamples) {
             val diff = kotlin.math.abs(lumaCur[i] - lumaBg[i] - shift)
-            val changed = diff >= LUMA_PIXEL_DIFF_THRESHOLD
+            val changed = diff >= diffThreshold
             changedGrid[i] = changed
             if (changed) changedCount++
-            lumaBg[i] += (lumaCur[i] - lumaBg[i]) * LUMA_BG_ALPHA
+            lumaBg[i] += (lumaCur[i] - lumaBg[i]) * bgAlpha
         }
 
         val changedRatio = changedCount.toFloat() / totalSamples
-        if (changedRatio < LUMA_CHANGED_RATIO_THRESHOLD) {
+        if (changedRatio >= currentMotionGlobalJumpRatio && kotlin.math.abs(shift) >= diffThreshold) {
+            // 全屏均匀亮度剧变（如开关灯/AE突变），重设背景避免误判运动
+            lumaCur.copyInto(lumaBg)
+            return MotionAnalysis(hasMotion = false, cropNorm = null)
+        }
+        if (changedRatio < currentMotionAreaRatio) {
             return MotionAnalysis(hasMotion = false, cropNorm = null)
         }
 
@@ -591,7 +729,7 @@ class PlateRecognizer(context: Context) {
         }
 
         val clusterRatio = bestCount.toFloat() / totalSamples
-        if (bestCount < MOTION_CROP_MIN_CELLS || clusterRatio >= MOTION_CROP_MAX_RATIO) {
+        if (bestCount < currentMotionCropMinCells || clusterRatio >= MOTION_CROP_MAX_RATIO) {
             return MotionAnalysis(hasMotion = true, cropNorm = null)
         }
 
@@ -611,8 +749,8 @@ class PlateRecognizer(context: Context) {
         var cx2 = rawX2
         var cy2 = rawY2
 
-        val padW = (cx2 - cx1) * MOTION_CROP_PAD_RATIO
-        val padH = (cy2 - cy1) * MOTION_CROP_PAD_RATIO
+        val padW = (cx2 - cx1) * currentMotionCropPadRatio
+        val padH = (cy2 - cy1) * currentMotionCropPadRatio
         cx1 -= padW
         cy1 -= padH
         cx2 += padW
@@ -803,7 +941,7 @@ class PlateRecognizer(context: Context) {
                         autoTorchActive = true
                         onMotionTorchChanged?.invoke(true)
                     }
-                } else if (autoTorchActive && latestPlates.isEmpty() && now - lastMotionForTorchMs >= AUTO_TORCH_HOLD_MS) {
+                } else if (autoTorchActive && latestPlates.isEmpty() && now - lastMotionForTorchMs >= currentMotionTorchHoldMs) {
                     autoTorchActive = false
                     onMotionTorchChanged?.invoke(false)
                 }
@@ -821,7 +959,7 @@ class PlateRecognizer(context: Context) {
                 )
                 consecutiveStaticChecks++
                 if (consecutiveStaticChecks >= 2 && consecutiveStaticChecks % STATIC_HEARTBEAT_INTERVAL != 0) {
-                    effectiveIntervalMs = maxOf(currentIntervalMs, STATIC_CHECK_BACKOFF_MS)
+                    effectiveIntervalMs = maxOf(currentIntervalMs, currentMotionBackoffMs)
                     isProcessing.set(false)
                     return
                 }

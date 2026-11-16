@@ -1786,6 +1786,10 @@ class StreamingServerHelper(
             // Focus distance
             map["focusDistance"] = storedPrefString("-1", "focus_") ?: "-1"
 
+            // Manual ISO & shutter speed (0 = auto)
+            map["iso"] = storedPrefString("0", "iso_") ?: "0"
+            map["shutterNs"] = storedPrefString("0", "shutter_ns_") ?: "0"
+
             // Rotation
             map["rotate"] = storedPrefInt(0, "camera_rotate_").toString()
 

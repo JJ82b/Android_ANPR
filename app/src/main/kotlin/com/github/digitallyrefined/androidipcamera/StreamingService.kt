@@ -498,10 +498,23 @@ class StreamingService : LifecycleService() {
                         roiW = params["roiW"]?.toFloatOrNull() ?: current.roiW,
                         roiH = params["roiH"]?.toFloatOrNull() ?: current.roiH,
                         motionCropEnabled = params["motionCropEnabled"]?.let { it == "true" || it == "1" } ?: current.motionCropEnabled,
-                        motionTorchEnabled = params["motionTorchEnabled"]?.let { it == "true" || it == "1" } ?: current.motionTorchEnabled
+                        motionTorchEnabled = params["motionTorchEnabled"]?.let { it == "true" || it == "1" } ?: current.motionTorchEnabled,
+                        flashCaptureEnabled = params["flashCaptureEnabled"]?.let { it == "true" || it == "1" } ?: current.flashCaptureEnabled,
+                        flashCaptureIso = params["flashCaptureIso"]?.toIntOrNull() ?: current.flashCaptureIso,
+                        flashCaptureShutterNs = params["flashCaptureShutterNs"]?.toLongOrNull() ?: current.flashCaptureShutterNs,
+                        motionDiffThreshold = params["motionDiffThreshold"]?.toFloatOrNull() ?: current.motionDiffThreshold,
+                        motionAreaRatio = params["motionAreaRatio"]?.toFloatOrNull() ?: current.motionAreaRatio,
+                        motionBgAlpha = params["motionBgAlpha"]?.toFloatOrNull() ?: current.motionBgAlpha,
+                        motionCropMinCells = params["motionCropMinCells"]?.toIntOrNull() ?: current.motionCropMinCells,
+                        motionCropPadRatio = params["motionCropPadRatio"]?.toFloatOrNull() ?: current.motionCropPadRatio,
+                        motionBackoffMs = params["motionBackoffMs"]?.toLongOrNull() ?: current.motionBackoffMs,
+                        motionTorchHoldMs = params["motionTorchHoldMs"]?.toLongOrNull() ?: current.motionTorchHoldMs,
+                        torchSettleMs = params["torchSettleMs"]?.toLongOrNull() ?: current.torchSettleMs,
+                        motionGlobalJumpRatio = params["motionGlobalJumpRatio"]?.toFloatOrNull() ?: current.motionGlobalJumpRatio
                     )
                     val saved = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.saveConfig(this, updated)
                     plateRecognizer.reloadConfig(saved)
+                    launchMain { applyCurrentManualExposure() }
                     saved.toJson()
                 },
                 onLoopRecordingGet = {
@@ -1333,6 +1346,42 @@ class StreamingService : LifecycleService() {
             else -> null
         }
         focus?.toFloatOrNull()?.let { b.setManualFocus(it) }
+
+        applyCurrentManualExposure(b)
+    }
+
+    private fun applyCurrentManualExposure(
+        b: CaptureBackend? = backend,
+        torchLitOverride: Boolean? = null
+    ) {
+        val target = b ?: return
+        val p = PreferenceManager.getDefaultSharedPreferences(this)
+        val torchLit = torchLitOverride
+            ?: (target.getTorch() || motionTorchLitByAuto || deviceTorchOn || p.getString(PREF_CAMERA_TORCH, "off") == "on")
+        if (torchLit) {
+            val cfg = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this)
+            if (cfg.flashCaptureEnabled) {
+                target.setManualExposure(cfg.flashCaptureIso, cfg.flashCaptureShutterNs)
+                return
+            }
+        }
+        val id = camId()
+        if (id == null) {
+            target.setManualExposure(0, 0L)
+            return
+        }
+        val phys = id.substringAfter(':', id)
+        val iso = when {
+            p.contains("iso_$id") -> p.getString("iso_$id", "0")?.toIntOrNull()
+            p.contains("iso_$phys") -> p.getString("iso_$phys", "0")?.toIntOrNull()
+            else -> 0
+        } ?: 0
+        val shutterNs = when {
+            p.contains("shutter_ns_$id") -> p.getString("shutter_ns_$id", "0")?.toLongOrNull()
+            p.contains("shutter_ns_$phys") -> p.getString("shutter_ns_$phys", "0")?.toLongOrNull()
+            else -> 0L
+        } ?: 0L
+        target.setManualExposure(iso, shutterNs)
     }
 
     /** Rear camera id that owns the flash unit (usually the main lens). Auxiliary rear lenses on
@@ -1360,15 +1409,19 @@ class StreamingService : LifecycleService() {
             if (turnOn) {
                 if (!manualTorchOn && !motionTorchLitByAuto) {
                     motionTorchLitByAuto = true
+                    plateRecognizer.notifyTorchTransition(turnedOn = true)
                     backend?.setTorch(true)
                     if (backend?.hasFlashUnit != true) setDeviceTorch(true)
+                    applyCurrentManualExposure(torchLitOverride = true)
                     Log.i(TAG, "检测到运动，自动开启闪光灯")
                 }
             } else if (motionTorchLitByAuto) {
                 motionTorchLitByAuto = false
                 if (!manualTorchOn) {
+                    plateRecognizer.notifyTorchTransition(turnedOn = false)
                     backend?.setTorch(false)
                     setDeviceTorch(false)
+                    applyCurrentManualExposure(torchLitOverride = false)
                     Log.i(TAG, "画面恢复静止，自动关闭闪光灯")
                 }
             }
@@ -1735,12 +1788,14 @@ class StreamingService : LifecycleService() {
                         cameraHeldForTorch = true
                         startCamera(force = true)
                     }
+                    plateRecognizer.notifyTorchTransition(turnedOn = next)
                     backend?.setTorch(next)
                     // The active lens may not own the flash unit (ultra-wide/depth) — drive the
                     // torch through the flash-capable rear camera instead so it still lights.
                     // On "off" always clear the device channel too: a lens switch can have moved
                     // the torch between mechanisms.
                     if (backend?.hasFlashUnit != true || !next) setDeviceTorch(next)
+                    applyCurrentManualExposure(torchLitOverride = next)
                     if (!next && cameraHeldForTorch) {
                         cameraHeldForTorch = false
                         if (!hasActiveClients() && currentSurfaceProvider == null) stopCamera()
@@ -1784,6 +1839,28 @@ class StreamingService : LifecycleService() {
                     if (physicalId.isNotBlank() && physicalId != id) prefs.edit().putString("focus_$physicalId", f.coerceIn(0f, 1f).toString()).apply()
                 }
                 launchMain { backend?.setManualFocus(f) }
+            }
+            "iso" -> {
+                val isoVal = value.toIntOrNull()?.coerceIn(0, 6400) ?: return
+                if (isoVal <= 0) {
+                    prefs.edit().remove("iso_$id").apply()
+                    if (physicalId.isNotBlank() && physicalId != id) prefs.edit().remove("iso_$physicalId").apply()
+                } else {
+                    prefs.edit().putString("iso_$id", isoVal.toString()).apply()
+                    if (physicalId.isNotBlank() && physicalId != id) prefs.edit().putString("iso_$physicalId", isoVal.toString()).apply()
+                }
+                launchMain { applyCurrentManualExposure() }
+            }
+            "shutter_ns" -> {
+                val nsVal = value.toLongOrNull()?.coerceIn(0L, 1_000_000_000L) ?: return
+                if (nsVal <= 0L) {
+                    prefs.edit().remove("shutter_ns_$id").apply()
+                    if (physicalId.isNotBlank() && physicalId != id) prefs.edit().remove("shutter_ns_$physicalId").apply()
+                } else {
+                    prefs.edit().putString("shutter_ns_$id", nsVal.toString()).apply()
+                    if (physicalId.isNotBlank() && physicalId != id) prefs.edit().putString("shutter_ns_$physicalId", nsVal.toString()).apply()
+                }
+                launchMain { applyCurrentManualExposure() }
             }
             "snapshot_res" -> {
                 if (value == "max" || value == "stream") {

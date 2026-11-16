@@ -574,6 +574,7 @@
             </div>
             <div style="display: flex; align-items: center; gap: 6px;">
               <span id="alpr-latency" style="font-size: 11px; color: #94a3b8;">--ms</span>
+              <button id="alpr-flash-capture-btn" type="button" title="闪光灯亮起后自动切换指定 ISO 与快门抓拍" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprFlashCaptureBtn">闪光抓拍</button>
               <button id="alpr-motion-vis-btn" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprMotionVis">运动区块</button>
               <button id="alpr-adv-toggle" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprAdvToggle">高级选项 ▾</button>
             </div>
@@ -625,6 +626,35 @@
               <span data-i18n="alprMotionTorch">检测到运动自动开启闪光灯 (5秒延时熄灭)</span>
             </label>
 
+            <div id="alpr-flash-capture-box" style="margin-top: 6px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(250, 204, 21, 0.35);">
+              <div style="font-size: 12px; color: #fde047; margin-bottom: 6px;" data-i18n="alprFlashCaptureParams">闪光抓拍预设 (亮灯后生效)</div>
+              <div style="display: flex; gap: 8px;">
+                <div style="flex: 1;">
+                  <label for="alprFlashCaptureIso" data-i18n="isoLabel">感光度 (ISO)</label>
+                  <select id="alprFlashCaptureIso" class="camera-select" style="margin-bottom: 0;">
+                    <option value="100">ISO 100</option>
+                    <option value="200" selected>ISO 200</option>
+                    <option value="400">ISO 400</option>
+                    <option value="800">ISO 800</option>
+                    <option value="1600">ISO 1600</option>
+                    <option value="3200">ISO 3200</option>
+                  </select>
+                </div>
+                <div style="flex: 1;">
+                  <label for="alprFlashCaptureShutter" data-i18n="shutterLabel">快门速度</label>
+                  <select id="alprFlashCaptureShutter" class="camera-select" style="margin-bottom: 0;">
+                    <option value="500000">1/2000s</option>
+                    <option value="1000000">1/1000s</option>
+                    <option value="2000000" selected>1/500s</option>
+                    <option value="4000000">1/250s</option>
+                    <option value="8000000">1/125s</option>
+                    <option value="16666667">1/60s</option>
+                    <option value="33333333">1/30s</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
               <input type="checkbox" id="alprRoiEnabled" style="width: auto; margin: 0;">
               <span data-i18n="alprRoiEnabled">固定识别区域裁剪 (ROI)</span>
@@ -639,6 +669,28 @@
               <input type="range" id="alprRoiW" min="0.10" max="1.00" step="0.05" value="1.00">
               <label for="alprRoiH"><span data-i18n="alprRoiH">ROI 高度 (H)</span> <span class="val-badge" id="alprRoiHVal">0.75</span></label>
               <input type="range" id="alprRoiH" min="0.10" max="1.00" step="0.05" value="0.75">
+            </div>
+
+            <div id="alpr-motion-tune-box" style="margin-top: 8px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.35);">
+              <div style="font-size: 12px; color: #38bdf8; margin-bottom: 6px;" data-i18n="alprMotionTuneTitle">动作检测灵敏度调试</div>
+              <label for="alprMotionDiff"><span data-i18n="alprMotionDiff">单格亮度变化阈值 (越大越抗噪)</span> <span class="val-badge" id="alprMotionDiffVal">20</span></label>
+              <input type="range" id="alprMotionDiff" min="5" max="60" step="1" value="20">
+              <label for="alprMotionArea"><span data-i18n="alprMotionArea">触发运动最小面积占比</span> <span class="val-badge" id="alprMotionAreaVal">5%</span></label>
+              <input type="range" id="alprMotionArea" min="0.01" max="0.30" step="0.01" value="0.05">
+              <label for="alprMotionBgAlpha"><span data-i18n="alprMotionBgAlpha">背景自适应速度 (Alpha)</span> <span class="val-badge" id="alprMotionBgAlphaVal">0.05</span></label>
+              <input type="range" id="alprMotionBgAlpha" min="0.01" max="0.30" step="0.01" value="0.05">
+              <label for="alprMotionMinCells"><span data-i18n="alprMotionMinCells">动态裁切最小团块格数</span> <span class="val-badge" id="alprMotionMinCellsVal">6</span></label>
+              <input type="range" id="alprMotionMinCells" min="2" max="30" step="1" value="6">
+              <label for="alprMotionPad"><span data-i18n="alprMotionPad">动态裁切外扩比例</span> <span class="val-badge" id="alprMotionPadVal">28%</span></label>
+              <input type="range" id="alprMotionPad" min="0.05" max="0.60" step="0.02" value="0.28">
+              <label for="alprMotionBackoff"><span data-i18n="alprMotionBackoff">静止退避间隔</span> <span class="val-badge" id="alprMotionBackoffVal">1000ms</span></label>
+              <input type="range" id="alprMotionBackoff" min="300" max="3000" step="100" value="1000">
+              <label for="alprMotionTorchHold"><span data-i18n="alprMotionTorchHold">运动亮灯保持时长</span> <span class="val-badge" id="alprMotionTorchHoldVal">5.0s</span></label>
+              <input type="range" id="alprMotionTorchHold" min="1000" max="15000" step="500" value="5000">
+              <label for="alprTorchSettle"><span data-i18n="alprTorchSettle">闪光灯切换稳定期 (防自激)</span> <span class="val-badge" id="alprTorchSettleVal">1000ms</span></label>
+              <input type="range" id="alprTorchSettle" min="300" max="3000" step="100" value="1000">
+              <label for="alprGlobalJumpRatio"><span data-i18n="alprGlobalJumpRatio">全屏光照突变抑制阈值</span> <span class="val-badge" id="alprGlobalJumpRatioVal">75%</span></label>
+              <input type="range" id="alprGlobalJumpRatio" min="0.50" max="0.95" step="0.05" value="0.75">
             </div>
 
             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
@@ -705,6 +757,34 @@
           <label for="exposure"><span data-i18n="exposureLabel">曝光补偿</span> <span class='val-badge' id='exposureVal'>0</span></label>
           <input id="exposure" type='range' min='-10' max='10' step='1' value='0' data-control='exposure'
             data-badge='exposureVal'>
+
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <div style="flex: 1;">
+              <label for="isoSelect" data-i18n="isoLabel">感光度 (ISO)</label>
+              <select id="isoSelect" class="camera-select" style="margin-bottom: 0;" onchange="sendControl('iso', this.value)">
+                <option value="0" data-i18n="autoOpt">自动 (Auto)</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+                <option value="400">400</option>
+                <option value="800">800</option>
+                <option value="1600">1600</option>
+                <option value="3200">3200</option>
+              </select>
+            </div>
+            <div style="flex: 1;">
+              <label for="shutterSelect" data-i18n="shutterLabel">快门速度</label>
+              <select id="shutterSelect" class="camera-select" style="margin-bottom: 0;" onchange="sendControl('shutter_ns', this.value)">
+                <option value="0" data-i18n="autoOpt">自动 (Auto)</option>
+                <option value="500000">1/2000s</option>
+                <option value="1000000">1/1000s</option>
+                <option value="2000000">1/500s</option>
+                <option value="4000000">1/250s</option>
+                <option value="8000000">1/125s</option>
+                <option value="16666667">1/60s</option>
+                <option value="33333333">1/30s</option>
+              </select>
+            </div>
+          </div>
 
           <label for="focusDistance"><span data-i18n="focusLabel">对焦距离</span> <span class='val-badge' id='focusVal'>Auto</span></label>
           <input id="focusDistance" type='range' min='-0.05' max='1.0' step='0.05' value='-1'
@@ -912,6 +992,8 @@
         loading: '加载中...',
         loadingSettings: '正在加载设置…',
         alprTitle: 'ALPR 车牌识别',
+        alprFlashCaptureBtn: '闪光抓拍',
+        alprFlashCaptureParams: '闪光抓拍预设 (亮灯后生效)',
         alprMotionVis: '运动区块',
         alprAdvToggle: '高级选项 ▾',
         alprWaiting: '等待检测...',
@@ -934,6 +1016,16 @@
         alprRoiY: 'ROI 上边界 (Y)',
         alprRoiW: 'ROI 宽度 (W)',
         alprRoiH: 'ROI 高度 (H)',
+        alprMotionTuneTitle: '动作检测灵敏度调试',
+        alprMotionDiff: '单格亮度变化阈值 (越大越抗噪)',
+        alprMotionArea: '触发运动最小面积占比',
+        alprMotionBgAlpha: '背景自适应速度 (Alpha)',
+        alprMotionMinCells: '动态裁切最小团块格数',
+        alprMotionPad: '动态裁切外扩比例',
+        alprMotionBackoff: '静止退避间隔',
+        alprMotionTorchHold: '运动亮灯保持时长',
+        alprTorchSettle: '闪光灯切换稳定期 (防自激)',
+        alprGlobalJumpRatio: '全屏光照突变抑制阈值',
         alprApply: '应用并重载模型',
         settingsTitle: '基础设置',
         cameraLabel: '摄像头',
@@ -956,6 +1048,9 @@
         resolutionLabel: '分辨率',
         zoomLabel: '变焦',
         exposureLabel: '曝光补偿',
+        isoLabel: '感光度 (ISO)',
+        shutterLabel: '快门速度',
+        autoOpt: '自动 (Auto)',
         focusLabel: '对焦距离',
         rotateLabel: '画面旋转',
         mirrorLabel: '镜像翻转',
@@ -1030,6 +1125,8 @@
         loading: 'Loading...',
         loadingSettings: 'Loading settings…',
         alprTitle: 'ALPR Plate',
+        alprFlashCaptureBtn: 'Flash Cap',
+        alprFlashCaptureParams: 'Flash Capture Preset (Active When Torch Lit)',
         alprMotionVis: 'Motion Box',
         alprAdvToggle: 'Advanced ▾',
         alprWaiting: 'Waiting...',
@@ -1052,6 +1149,16 @@
         alprRoiY: 'ROI Top (Y)',
         alprRoiW: 'ROI Width (W)',
         alprRoiH: 'ROI Height (H)',
+        alprMotionTuneTitle: 'Motion Detection Tuning',
+        alprMotionDiff: 'Luma Diff Threshold (Higher = Less Sensitive)',
+        alprMotionArea: 'Min Changed Area Ratio',
+        alprMotionBgAlpha: 'Background Adapt Rate (Alpha)',
+        alprMotionMinCells: 'Min Motion Cluster Cells',
+        alprMotionPad: 'Motion Crop Padding Ratio',
+        alprMotionBackoff: 'Static Backoff Interval',
+        alprMotionTorchHold: 'Auto-Torch Hold Duration',
+        alprTorchSettle: 'Torch Transition Settle Window',
+        alprGlobalJumpRatio: 'Global Light-Jump Ignore Ratio',
         alprApply: 'Apply & Reload Model',
         settingsTitle: 'Settings',
         cameraLabel: 'Camera',
@@ -1074,6 +1181,9 @@
         resolutionLabel: 'Resolution',
         zoomLabel: 'Zoom',
         exposureLabel: 'Exposure',
+        isoLabel: 'ISO',
+        shutterLabel: 'Shutter',
+        autoOpt: 'Auto',
         focusLabel: 'Focus',
         rotateLabel: 'Rotation',
         mirrorLabel: 'Mirror',
@@ -2214,6 +2324,14 @@
         exposure.value = settings.exposure;
         if (exposureVal) exposureVal.textContent = settings.exposure;
       }
+      const isoSelect = getElById('isoSelect');
+      if (isoSelect && settings.iso != null) {
+        isoSelect.value = String(settings.iso);
+      }
+      const shutterSelect = getElById('shutterSelect');
+      if (shutterSelect && settings.shutterNs != null) {
+        shutterSelect.value = String(settings.shutterNs);
+      }
       const contrast = getElById('contrast');
       const contVal = getElById('contVal');
       if (contrast && settings.contrast != null) {
@@ -2965,6 +3083,10 @@
       const motionGateEl = getElById('alprMotionGate');
       const motionCropEl = getElById('alprMotionCrop');
       const motionTorchEl = getElById('alprMotionTorch');
+      const flashCaptureBtn = getElById('alpr-flash-capture-btn');
+      const flashCaptureIsoEl = getElById('alprFlashCaptureIso');
+      const flashCaptureShutterEl = getElById('alprFlashCaptureShutter');
+      let flashCaptureEnabled = false;
       const roiEnabledEl = getElById('alprRoiEnabled');
       const roiBoxEl = getElById('alpr-roi-box');
       const roiXEl = getElById('alprRoiX');
@@ -2975,6 +3097,24 @@
       const roiWValEl = getElById('alprRoiWVal');
       const roiHEl = getElById('alprRoiH');
       const roiHValEl = getElById('alprRoiHVal');
+      const motionDiffEl = getElById('alprMotionDiff');
+      const motionDiffValEl = getElById('alprMotionDiffVal');
+      const motionAreaEl = getElById('alprMotionArea');
+      const motionAreaValEl = getElById('alprMotionAreaVal');
+      const motionBgAlphaEl = getElById('alprMotionBgAlpha');
+      const motionBgAlphaValEl = getElById('alprMotionBgAlphaVal');
+      const motionMinCellsEl = getElById('alprMotionMinCells');
+      const motionMinCellsValEl = getElById('alprMotionMinCellsVal');
+      const motionPadEl = getElById('alprMotionPad');
+      const motionPadValEl = getElById('alprMotionPadVal');
+      const motionBackoffEl = getElById('alprMotionBackoff');
+      const motionBackoffValEl = getElById('alprMotionBackoffVal');
+      const motionTorchHoldEl = getElById('alprMotionTorchHold');
+      const motionTorchHoldValEl = getElById('alprMotionTorchHoldVal');
+      const torchSettleEl = getElById('alprTorchSettle');
+      const torchSettleValEl = getElById('alprTorchSettleVal');
+      const globalJumpEl = getElById('alprGlobalJumpRatio');
+      const globalJumpValEl = getElById('alprGlobalJumpRatioVal');
       const applyBtn = getElById('alpr-adv-apply');
       const statusEl = getElById('alpr-adv-status');
 
@@ -2990,6 +3130,15 @@
         if (roiYValEl && roiYEl) roiYValEl.innerText = Number(roiYEl.value).toFixed(2);
         if (roiWValEl && roiWEl) roiWValEl.innerText = Number(roiWEl.value).toFixed(2);
         if (roiHValEl && roiHEl) roiHValEl.innerText = Number(roiHEl.value).toFixed(2);
+        if (motionDiffValEl && motionDiffEl) motionDiffValEl.innerText = motionDiffEl.value;
+        if (motionAreaValEl && motionAreaEl) motionAreaValEl.innerText = `${Math.round(Number(motionAreaEl.value) * 100)}%`;
+        if (motionBgAlphaValEl && motionBgAlphaEl) motionBgAlphaValEl.innerText = Number(motionBgAlphaEl.value).toFixed(2);
+        if (motionMinCellsValEl && motionMinCellsEl) motionMinCellsValEl.innerText = motionMinCellsEl.value;
+        if (motionPadValEl && motionPadEl) motionPadValEl.innerText = `${Math.round(Number(motionPadEl.value) * 100)}%`;
+        if (motionBackoffValEl && motionBackoffEl) motionBackoffValEl.innerText = `${motionBackoffEl.value}ms`;
+        if (motionTorchHoldValEl && motionTorchHoldEl) motionTorchHoldValEl.innerText = `${(Number(motionTorchHoldEl.value) / 1000).toFixed(1)}s`;
+        if (torchSettleValEl && torchSettleEl) torchSettleValEl.innerText = `${torchSettleEl.value}ms`;
+        if (globalJumpValEl && globalJumpEl) globalJumpValEl.innerText = `${Math.round(Number(globalJumpEl.value) * 100)}%`;
         if (roiBoxEl && roiEnabledEl) roiBoxEl.style.display = roiEnabledEl.checked ? 'block' : 'none';
         window.alprRoiState = {
           enabled: Boolean(roiEnabledEl && roiEnabledEl.checked),
@@ -3000,7 +3149,9 @@
         };
       }
 
-      [maxNumEl, boxConfEl, recConfEl, threadsEl, intervalMsEl, roiXEl, roiYEl, roiWEl, roiHEl].forEach(el => {
+      [maxNumEl, boxConfEl, recConfEl, threadsEl, intervalMsEl, roiXEl, roiYEl, roiWEl, roiHEl,
+       motionDiffEl, motionAreaEl, motionBgAlphaEl, motionMinCellsEl, motionPadEl, motionBackoffEl, motionTorchHoldEl,
+       torchSettleEl, globalJumpEl].forEach(el => {
         if (el) el.addEventListener('input', syncBadges);
       });
       if (roiEnabledEl) roiEnabledEl.addEventListener('change', syncBadges);
@@ -3021,11 +3172,29 @@
         if (motionGateEl && cfg.motionGateEnabled !== undefined) motionGateEl.checked = Boolean(cfg.motionGateEnabled);
         if (motionCropEl && cfg.motionCropEnabled !== undefined) motionCropEl.checked = Boolean(cfg.motionCropEnabled);
         if (motionTorchEl && cfg.motionTorchEnabled !== undefined) motionTorchEl.checked = Boolean(cfg.motionTorchEnabled);
+        if (cfg.flashCaptureEnabled !== undefined) {
+          flashCaptureEnabled = Boolean(cfg.flashCaptureEnabled);
+          if (flashCaptureBtn) {
+            flashCaptureBtn.style.background = flashCaptureEnabled ? 'rgba(217, 119, 6, 0.55)' : 'rgba(15,23,42,0.45)';
+            flashCaptureBtn.style.borderColor = flashCaptureEnabled ? '#fbbf24' : 'rgba(148,163,184,0.45)';
+          }
+        }
+        if (flashCaptureIsoEl && cfg.flashCaptureIso !== undefined) flashCaptureIsoEl.value = String(cfg.flashCaptureIso);
+        if (flashCaptureShutterEl && cfg.flashCaptureShutterNs !== undefined) flashCaptureShutterEl.value = String(cfg.flashCaptureShutterNs);
         if (roiEnabledEl && cfg.roiEnabled !== undefined) roiEnabledEl.checked = Boolean(cfg.roiEnabled);
         if (roiXEl && cfg.roiX !== undefined) roiXEl.value = Number(cfg.roiX).toFixed(2);
         if (roiYEl && cfg.roiY !== undefined) roiYEl.value = Number(cfg.roiY).toFixed(2);
         if (roiWEl && cfg.roiW !== undefined) roiWEl.value = Number(cfg.roiW).toFixed(2);
         if (roiHEl && cfg.roiH !== undefined) roiHEl.value = Number(cfg.roiH).toFixed(2);
+        if (motionDiffEl && cfg.motionDiffThreshold !== undefined) motionDiffEl.value = String(cfg.motionDiffThreshold);
+        if (motionAreaEl && cfg.motionAreaRatio !== undefined) motionAreaEl.value = Number(cfg.motionAreaRatio).toFixed(2);
+        if (motionBgAlphaEl && cfg.motionBgAlpha !== undefined) motionBgAlphaEl.value = Number(cfg.motionBgAlpha).toFixed(2);
+        if (motionMinCellsEl && cfg.motionCropMinCells !== undefined) motionMinCellsEl.value = String(cfg.motionCropMinCells);
+        if (motionPadEl && cfg.motionCropPadRatio !== undefined) motionPadEl.value = Number(cfg.motionCropPadRatio).toFixed(2);
+        if (motionBackoffEl && cfg.motionBackoffMs !== undefined) motionBackoffEl.value = String(cfg.motionBackoffMs);
+        if (motionTorchHoldEl && cfg.motionTorchHoldMs !== undefined) motionTorchHoldEl.value = String(cfg.motionTorchHoldMs);
+        if (torchSettleEl && cfg.torchSettleMs !== undefined) torchSettleEl.value = String(cfg.torchSettleMs);
+        if (globalJumpEl && cfg.motionGlobalJumpRatio !== undefined) globalJumpEl.value = Number(cfg.motionGlobalJumpRatio).toFixed(2);
         syncBadges();
       }
 
@@ -3040,6 +3209,21 @@
         .then(applyFromConfig)
         .catch(() => {});
 
+      if (flashCaptureBtn) {
+        flashCaptureBtn.addEventListener('click', () => {
+          const next = !flashCaptureEnabled;
+          const qs = new URLSearchParams({
+            flashCaptureEnabled: String(next),
+            flashCaptureIso: flashCaptureIsoEl ? flashCaptureIsoEl.value : '200',
+            flashCaptureShutterNs: flashCaptureShutterEl ? flashCaptureShutterEl.value : '2000000'
+          }).toString();
+          fetch(`/api/alpr/config?${qs}`, { method: 'POST', credentials: 'include', cache: 'no-store' })
+            .then(r => r.json())
+            .then(applyFromConfig)
+            .catch(() => {});
+        });
+      }
+
       if (applyBtn) {
         applyBtn.addEventListener('click', () => {
           const qs = new URLSearchParams({
@@ -3053,11 +3237,23 @@
             motionGateEnabled: motionGateEl ? String(motionGateEl.checked) : 'true',
             motionCropEnabled: motionCropEl ? String(motionCropEl.checked) : 'false',
             motionTorchEnabled: motionTorchEl ? String(motionTorchEl.checked) : 'false',
+            flashCaptureEnabled: String(flashCaptureEnabled),
+            flashCaptureIso: flashCaptureIsoEl ? flashCaptureIsoEl.value : '200',
+            flashCaptureShutterNs: flashCaptureShutterEl ? flashCaptureShutterEl.value : '2000000',
             roiEnabled: roiEnabledEl ? String(roiEnabledEl.checked) : 'false',
             roiX: roiXEl ? roiXEl.value : '0.00',
             roiY: roiYEl ? roiYEl.value : '0.25',
             roiW: roiWEl ? roiWEl.value : '1.00',
-            roiH: roiHEl ? roiHEl.value : '0.75'
+            roiH: roiHEl ? roiHEl.value : '0.75',
+            motionDiffThreshold: motionDiffEl ? motionDiffEl.value : '20',
+            motionAreaRatio: motionAreaEl ? motionAreaEl.value : '0.05',
+            motionBgAlpha: motionBgAlphaEl ? motionBgAlphaEl.value : '0.05',
+            motionCropMinCells: motionMinCellsEl ? motionMinCellsEl.value : '6',
+            motionCropPadRatio: motionPadEl ? motionPadEl.value : '0.28',
+            motionBackoffMs: motionBackoffEl ? motionBackoffEl.value : '1000',
+            motionTorchHoldMs: motionTorchHoldEl ? motionTorchHoldEl.value : '5000',
+            torchSettleMs: torchSettleEl ? torchSettleEl.value : '1000',
+            motionGlobalJumpRatio: globalJumpEl ? globalJumpEl.value : '0.75'
           }).toString();
           if (statusEl) statusEl.innerText = '正在保存并重载...';
           fetch(`/api/alpr/config?${qs}`, { method: 'POST', credentials: 'include', cache: 'no-store' })
