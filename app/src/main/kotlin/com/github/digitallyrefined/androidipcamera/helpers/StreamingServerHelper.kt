@@ -69,7 +69,8 @@ class StreamingServerHelper(
     private val onLoopRecordingSet: (Map<String, String>) -> String = { "{}" },
     private val onPlateEventsQuery: (Map<String, String>) -> String = { """{"events":[]}""" },
     private val onPlateEventImage: (String?) -> java.io.File? = { null },
-    private val onPlateEventsDelete: (Map<String, String>) -> String = { """{"deleted":0}""" }
+    private val onPlateEventsDelete: (Map<String, String>) -> String = { """{"deleted":0}""" },
+    private val isCameraActive: () -> Boolean = { false }
 
 ) {
     data class Client(
@@ -1714,7 +1715,7 @@ class StreamingServerHelper(
 
     private fun buildDeviceInfo(): DeviceInfo {
         val context = context
-        val idle = clients.isEmpty() && h264Clients.isEmpty()
+        val idle = clients.isEmpty() && h264Clients.isEmpty() && !isCameraActive()
         val cameraList = buildCameraInfoList(idle)
         // Gather per-camera stored settings from SharedPreferences. Keys use suffixes like
         // zoom_<cameraId>, exposure_<cameraId>, focus_<cameraId> which are already used
@@ -1933,11 +1934,16 @@ class StreamingServerHelper(
                     map?.getOutputSizes(SurfaceTexture::class.java)?.forEach { set.add(it.width to it.height) }
                     map?.getOutputSizes(android.media.MediaCodec::class.java)?.forEach { set.add(it.width to it.height) }
                 } catch (_: Exception) {}
-                if (idle) {  // Camera1 preview sizes expose 16:9 that LEGACY Camera2 omits
+                val cachedC1 = cachedCamera1PreviewSizes[source.id]
+                if (cachedC1 != null) {
+                    set.addAll(cachedC1)
+                } else if (idle) {  // Camera1 preview sizes expose 16:9 that LEGACY Camera2 omits (probe once when camera is truly idle)
                     try {
                         @Suppress("DEPRECATION") val c1 = android.hardware.Camera.open(source.physicalId?.toIntOrNull() ?: source.logicalId.toIntOrNull() ?: source.fallbackIndex)
-                        @Suppress("DEPRECATION") c1.parameters.supportedPreviewSizes?.forEach { set.add(it.width to it.height) }
+                        @Suppress("DEPRECATION") val c1Sizes = c1.parameters.supportedPreviewSizes?.map { it.width to it.height }.orEmpty()
                         @Suppress("DEPRECATION") c1.release()
+                        cachedCamera1PreviewSizes[source.id] = c1Sizes
+                        set.addAll(c1Sizes)
                     } catch (_: Exception) {}
                 }
                 val sizes = set
@@ -2114,6 +2120,7 @@ class StreamingServerHelper(
     )
 
     companion object {
+        private val cachedCamera1PreviewSizes = ConcurrentHashMap<String, List<Pair<Int, Int>>>()
         @Volatile private var cachedTelemetry: DeviceTelemetry? = null
         @Volatile private var cachedTelemetryAtMs: Long = 0L
 

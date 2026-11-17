@@ -89,6 +89,7 @@ class CameraXCapture(
     private var manualIso: Int? = null
     private var manualExposureTimeNs: Long? = null
     private var aeRegionParams: FloatArray? = null
+    private var pendingOverrideRunnable: Runnable? = null
     /** Whether the bound camera can drive the flash at all — auxiliary lenses (ultra-wide, depth)
      *  report FLASH_INFO_AVAILABLE=false on many multi-lens phones and enableTorch() then fails
      *  asynchronously, which a synchronous try/catch never sees. Lazy because it reads
@@ -518,6 +519,14 @@ class CameraXCapture(
 
     @OptIn(ExperimentalCamera2Interop::class)
     private fun applyCamera2Overrides(retriesLeft: Int = 3) {
+        pendingOverrideRunnable?.let { mainHandler.removeCallbacks(it) }
+        val r = Runnable { executeCamera2Overrides(retriesLeft) }
+        pendingOverrideRunnable = r
+        mainHandler.post(r)
+    }
+
+    @OptIn(ExperimentalCamera2Interop::class)
+    private fun executeCamera2Overrides(retriesLeft: Int = 3) {
         val cam = camera ?: return
         try {
             val c2 = Camera2CameraControl.from(cam.cameraControl)

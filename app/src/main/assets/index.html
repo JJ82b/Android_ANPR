@@ -3831,7 +3831,10 @@
         });
       }
 
+      let activeTabMode = 'live';
       function switchTab(mode) {
+        if (mode === activeTabMode) return;
+        activeTabMode = mode;
         const isPlayback = mode === 'playback';
         const isManage = mode === 'manage';
         const isLive = !isPlayback && !isManage;

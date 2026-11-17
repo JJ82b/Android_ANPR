@@ -22,9 +22,15 @@
 1. **复用已运行的相机与 H.264 管线**（[StreamingService.kt#L722-L737](file:///home/chunxiaobian/Projects/Android_ANPR/app/src/main/kotlin/com/github/digitallyrefined/androidipcamera/StreamingService.kt#L722-L737)）
    - 在 `handleClientConnected()` 中，仅当 H.264 客户端接入且当前硬件编码器尚未绑定（`h264HardwareEncoder == null && supportsSurfaceEncoder()`）时才重启配置；
    - 若相机与编码器已在运行，直接取消待执行的空闲卸载任务（`pendingStartJob?.cancel()`），并调用 `h264StreamingEncoder?.h264HardwareEncoder?.requestKeyFrame()` 立即下发一个 IDR 关键帧，让新页面零延迟出图，**不再重建相机、不闪烁、不重新对焦**。
-2. **延长空闲卸载缓冲窗口并避免部分断开重启**（[StreamingService.kt#L755-L768](file:///home/chunxiaobian/Projects/Android_ANPR/app/src/main/kotlin/com/github/digitallyrefined/androidipcamera/StreamingService.kt#L755-L768)）
-   - 将无客户端后的空闲卸载延迟从 `300ms` 放宽至 `5000ms`（覆盖刷新页面或短时切换 Tab）；
-   - 当仍有其他客户端或预览存在时断开连接，改为仅调用 `updateSubStream()`，不再触发 `debouncedStartCamera()`。
+2. **保持已绑定的 H.264 管线与避免 `setPreviewSurface` 重复重启**（[StreamingService.kt#L355-L360](file:///home/chunxiaobian/Projects/Android_ANPR/app/src/main/kotlin/com/github/digitallyrefined/androidipcamera/StreamingService.kt#L355-L360)、[StreamingService.kt#L755-L762](file:///home/chunxiaobian/Projects/Android_ANPR/app/src/main/kotlin/com/github/digitallyrefined/androidipcamera/StreamingService.kt#L755-L762)、[index.html#L3834-L3838](file:///home/chunxiaobian/Projects/Android_ANPR/app/src/main/assets/index.html#L3834-L3838)、[CameraXCapture.kt#L520-L530](file:///home/chunxiaobian/Projects/Android_ANPR/app/src/main/kotlin/com/github/digitallyrefined/androidipcamera/helpers/CameraXCapture.kt#L520-L530)）
+   - 在 `handleClientDisconnected()` 中不再因为暂时无观众（如切到过车回放或记录管理页）而调用 `startCamera(force = true)` 卸载 H.264 编码器，保持相机与编码管线持续运行，切回实时监控时只需请求关键帧即可秒出画面；
+   - 在 `setPreviewSurface()` 中仅当 `!captureRunning` 时才启动相机，避免 `MainActivity` 生命周期回调触发无谓的相机重启；
+   - 在前端 `switchTab()` 增加同页幂等保护，避免重复点击“实时监控”时重连视频流；
+   - 在 `CameraXCapture.applyCamera2Overrides()` 合并同一帧内的多个 Camera2 参数更新，消除 `OperationCanceledException` 并发取消与重试抖动。
+
+3. **彻底消除 `/info.json` 抢占相机导致的 EVICT 重启**（[StreamingServerHelper.kt#L1796-L1945](file:///home/chunxiaobian/Projects/Android_ANPR/app/src/main/kotlin/com/github/digitallyrefined/androidipcamera/helpers/StreamingServerHelper.kt#L1796-L1945)、[StreamingService.kt#L566](file:///home/chunxiaobian/Projects/Android_ANPR/app/src/main/kotlin/com/github/digitallyrefined/androidipcamera/StreamingService.kt#L566)）
+   - 通过 `adb shell dumpsys media.camera` 抓取底层相机事件发现：在切页或页面刷新时，`/info.json` 仅判断 `clients.isEmpty() && h264Clients.isEmpty()` 为 `idle`，随即调用 `android.hardware.Camera.open(0/1)` 探测 Camera1 预览尺寸，**直接将正在后台/预览运行中的 CameraX 会话强行抢占（`EVICT device 0`）**，导致 CameraX 断开重连并重新触发对焦。
+   - 现已传入 `isCameraActive = { captureRunning }`，并在首次真正空闲探测后将 Camera1 尺寸缓存至 `cachedCamera1PreviewSizes`，以后不再调用 `Camera.open()` 抢占正在运行的相机。
 
 ---
 

@@ -354,7 +354,9 @@ class StreamingService : LifecycleService() {
         if (localRecorder?.isRecording == true) return
         val shouldRun = encoders.any { it.hasClients() } || currentSurfaceProvider != null || motionEnabled()
         if (shouldRun) {
-            debouncedStartCamera()
+            if (!captureRunning) {
+                debouncedStartCamera()
+            }
         } else {
             launchMain {
                 stopCamera()
@@ -562,7 +564,8 @@ class StreamingService : LifecycleService() {
                         else -> 0
                     }
                     """{"deleted":$deleted}"""
-                }
+                },
+                isCameraActive = { captureRunning }
             )
             com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.videoContextProvider = {
                 localRecorder?.let { it.currentFileName to it.recordingStartTimeMs } ?: (null to 0L)
@@ -748,22 +751,9 @@ class StreamingService : LifecycleService() {
                 return@launchMain
             }
             if (!hasActiveClients()) {
-                // Reload/idle: keep the LED lit across the session gap before the
-                // shed-restart tears the streaming camera down.
+                // Reload/idle: keep the LED lit across the session gap.
                 bridgeTorchAcrossIdle()
-                if (currentSurfaceProvider == null) {
-                    // Last client gone and no on-screen preview: shed the H.264
-                    // surface encoder / GL pipe and keep the camera warm in a plain,
-                    // snapshot-friendly configuration. Force ignores the hasClients()
-                    // bypass so the reconfiguration actually happens.
-                    pendingStartJob?.cancel()
-                    pendingStartJob = lifecycleScope.launch(Dispatchers.Main) {
-                        kotlinx.coroutines.delay(5000)
-                        if (!captureRunning) return@launch   // camera stopped meanwhile
-                        if (encoders.any { it.hasClients() } || currentSurfaceProvider != null || motionEnabled()) return@launch
-                        startCamera(force = true)
-                    }
-                }
+                // 保持已绑定的 H.264 编码器与相机管线温热，避免切到回放/管理页再切回实时监控时重建相机并重新对焦
             } else if (captureRunning) {
                 updateSubStream()
             }
