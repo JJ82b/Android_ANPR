@@ -429,6 +429,9 @@ class CameraXCapture(
             future.addListener({
                 try {
                     future.get()
+                    if (manualFocus != null || manualIso != null || manualExposureTimeNs != null) {
+                        applyCamera2Overrides()
+                    }
                 } catch (e: Exception) {
                     Log.w(TAG, "enableTorch($on): ${e.message}")
                     if (on) torchEnabled = false
@@ -473,7 +476,7 @@ class CameraXCapture(
     }
 
     @OptIn(ExperimentalCamera2Interop::class)
-    private fun applyCamera2Overrides() {
+    private fun applyCamera2Overrides(retriesLeft: Int = 3) {
         val cam = camera ?: return
         try {
             val c2 = Camera2CameraControl.from(cam.cameraControl)
@@ -481,7 +484,10 @@ class CameraXCapture(
             val iso = manualIso
             val expNs = manualExposureTimeNs
             if (focus == null && iso == null && expNs == null) {
-                c2.clearCaptureRequestOptions()
+                val f = c2.clearCaptureRequestOptions()
+                f.addListener({
+                    try { f.get() } catch (e: Exception) { Log.w(TAG, "clearCamera2Overrides: ${e.message}") }
+                }, main)
                 return
             }
             val c2Info = Camera2CameraInfo.from(cam.cameraInfo)
@@ -509,8 +515,24 @@ class CameraXCapture(
                 )
                 builder.setCaptureRequestOption(CaptureRequest.SENSOR_SENSITIVITY, targetIso)
                 builder.setCaptureRequestOption(CaptureRequest.SENSOR_EXPOSURE_TIME, targetExpNs)
+                if (torchEnabled && hasFlashUnit) {
+                    builder.setCaptureRequestOption(
+                        CaptureRequest.FLASH_MODE, CameraMetadata.FLASH_MODE_TORCH
+                    )
+                }
+                Log.i(TAG, "applyCamera2Overrides: ISO=$targetIso shutterNs=$targetExpNs torch=$torchEnabled")
             }
-            c2.captureRequestOptions = builder.build()
+            val future = c2.setCaptureRequestOptions(builder.build())
+            future.addListener({
+                try {
+                    future.get()
+                } catch (e: Exception) {
+                    Log.w(TAG, "setCaptureRequestOptions failed (retriesLeft=$retriesLeft): ${e.message}")
+                    if (retriesLeft > 0) {
+                        mainHandler.postDelayed({ applyCamera2Overrides(retriesLeft - 1) }, 120)
+                    }
+                }
+            }, main)
         } catch (e: Exception) {
             Log.e(TAG, "applyCamera2Overrides: ${e.message}")
         }
