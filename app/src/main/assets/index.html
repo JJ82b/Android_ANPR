@@ -575,6 +575,7 @@
             <div style="display: flex; align-items: center; gap: 6px;">
               <span id="alpr-latency" style="font-size: 11px; color: #94a3b8;">--ms</span>
               <button id="alpr-flash-capture-btn" type="button" title="闪光灯亮起后自动切换指定 ISO 与快门抓拍" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprFlashCaptureBtn">闪光抓拍</button>
+              <button id="alpr-headlight-btn" type="button" title="仅局部亮度大幅变化（如车灯）时进入抓拍模式" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprHeadlightBtn">车灯抓拍</button>
               <button id="alpr-motion-vis-btn" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprMotionVis">运动区块</button>
               <button id="alpr-adv-toggle" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprAdvToggle">高级选项 ▾</button>
             </div>
@@ -627,7 +628,7 @@
             </label>
 
             <div id="alpr-flash-capture-box" style="margin-top: 6px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(250, 204, 21, 0.35);">
-              <div style="font-size: 12px; color: #fde047; margin-bottom: 6px;" data-i18n="alprFlashCaptureParams">闪光抓拍预设 (亮灯后生效)</div>
+              <div style="font-size: 12px; color: #fde047; margin-bottom: 6px;" data-i18n="alprFlashCaptureParams">闪光/车灯抓拍预设 (使用以下 ISO 与快门)</div>
               <div style="display: flex; gap: 8px;">
                 <div style="flex: 1;">
                   <label for="alprFlashCaptureIso" data-i18n="isoLabel">感光度 (ISO)</label>
@@ -653,6 +654,29 @@
                   </select>
                 </div>
               </div>
+            </div>
+
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
+              <input type="checkbox" id="alprHeadlightCapture" style="width: auto; margin: 0;">
+              <span data-i18n="alprHeadlightCapture">车灯高亮抓拍 (仅局部亮度剧变进入抓拍模式)</span>
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
+              <input type="checkbox" id="alprAeRegion" style="width: auto; margin: 0;">
+              <span data-i18n="alprAeRegion">区域曝光测光 (跟随 ROI / 默认中下车道)</span>
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
+              <input type="checkbox" id="alprAntiOverexposure" style="width: auto; margin: 0;">
+              <span data-i18n="alprAntiOverexposure">峰值防过曝保护 (高光溢出时自动降 EV)</span>
+            </label>
+            <div id="alpr-headlight-box" style="display: none; margin-top: 6px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(52, 211, 153, 0.35);">
+              <label for="alprHeadlightDiff"><span data-i18n="alprHeadlightDiff">车灯亮度跳变阈值</span> <span class="val-badge" id="alprHeadlightDiffVal">55</span></label>
+              <input type="range" id="alprHeadlightDiff" min="30" max="120" step="5" value="55">
+              <label for="alprHeadlightMinRatio"><span data-i18n="alprHeadlightMinRatio">高亮区最小占比</span> <span class="val-badge" id="alprHeadlightMinRatioVal">2%</span></label>
+              <input type="range" id="alprHeadlightMinRatio" min="0.01" max="0.20" step="0.01" value="0.02">
+              <label for="alprHeadlightMaxRatio"><span data-i18n="alprHeadlightMaxRatio">高亮区最大占比 (防全屏突变)</span> <span class="val-badge" id="alprHeadlightMaxRatioVal">55%</span></label>
+              <input type="range" id="alprHeadlightMaxRatio" min="0.20" max="0.90" step="0.05" value="0.55">
             </div>
 
             <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
@@ -993,7 +1017,14 @@
         loadingSettings: '正在加载设置…',
         alprTitle: 'ALPR 车牌识别',
         alprFlashCaptureBtn: '闪光抓拍',
-        alprFlashCaptureParams: '闪光抓拍预设 (亮灯后生效)',
+        alprHeadlightBtn: '车灯抓拍',
+        alprFlashCaptureParams: '闪光/车灯抓拍预设 (使用以下 ISO 与快门)',
+        alprHeadlightCapture: '车灯高亮抓拍 (仅局部亮度剧变进入抓拍模式)',
+        alprHeadlightDiff: '车灯亮度跳变阈值',
+        alprHeadlightMinRatio: '高亮区最小占比',
+        alprHeadlightMaxRatio: '高亮区最大占比 (防全屏突变)',
+        alprAeRegion: '区域曝光测光 (跟随 ROI / 默认中下车道)',
+        alprAntiOverexposure: '峰值防过曝保护 (高光溢出时自动降 EV)',
         alprMotionVis: '运动区块',
         alprAdvToggle: '高级选项 ▾',
         alprWaiting: '等待检测...',
@@ -1126,7 +1157,14 @@
         loadingSettings: 'Loading settings…',
         alprTitle: 'ALPR Plate',
         alprFlashCaptureBtn: 'Flash Cap',
-        alprFlashCaptureParams: 'Flash Capture Preset (Active When Torch Lit)',
+        alprHeadlightBtn: 'Headlight Cap',
+        alprFlashCaptureParams: 'Flash / Headlight Capture Preset (ISO & Shutter)',
+        alprHeadlightCapture: 'Headlight Capture (Partial Large Luma Jump)',
+        alprHeadlightDiff: 'Headlight Luma Jump Threshold',
+        alprHeadlightMinRatio: 'Min Bright Area Ratio',
+        alprHeadlightMaxRatio: 'Max Bright Area Ratio (Ignore Global)',
+        alprAeRegion: 'Regional AE Metering (Follow ROI / Lane)',
+        alprAntiOverexposure: 'Highlight Anti-Overexposure (Auto EV Clamp)',
         alprMotionVis: 'Motion Box',
         alprAdvToggle: 'Advanced ▾',
         alprWaiting: 'Waiting...',
@@ -2923,6 +2961,10 @@
         } else {
           statusText = '画面静止 · 节能退避中';
         }
+        if (motionDebug.headlightCaptureActive) {
+          statusText += ' · 车灯抓拍中';
+          statusBg = 'rgba(5, 150, 105, 0.88)';
+        }
         ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, sans-serif';
         const tw = ctx.measureText(statusText).width + 12;
         const sx = lastVideoRect.dx + 8;
@@ -3084,9 +3126,21 @@
       const motionCropEl = getElById('alprMotionCrop');
       const motionTorchEl = getElById('alprMotionTorch');
       const flashCaptureBtn = getElById('alpr-flash-capture-btn');
+      const headlightBtn = getElById('alpr-headlight-btn');
       const flashCaptureIsoEl = getElById('alprFlashCaptureIso');
       const flashCaptureShutterEl = getElById('alprFlashCaptureShutter');
+      const headlightCaptureEl = getElById('alprHeadlightCapture');
+      const headlightBoxEl = getElById('alpr-headlight-box');
+      const headlightDiffEl = getElById('alprHeadlightDiff');
+      const headlightDiffValEl = getElById('alprHeadlightDiffVal');
+      const headlightMinEl = getElById('alprHeadlightMinRatio');
+      const headlightMinValEl = getElById('alprHeadlightMinRatioVal');
+      const headlightMaxEl = getElById('alprHeadlightMaxRatio');
+      const headlightMaxValEl = getElById('alprHeadlightMaxRatioVal');
+      const aeRegionEl = getElById('alprAeRegion');
+      const antiOverexpEl = getElById('alprAntiOverexposure');
       let flashCaptureEnabled = false;
+      let headlightCaptureEnabled = false;
       const roiEnabledEl = getElById('alprRoiEnabled');
       const roiBoxEl = getElById('alpr-roi-box');
       const roiXEl = getElById('alprRoiX');
@@ -3139,6 +3193,10 @@
         if (motionTorchHoldValEl && motionTorchHoldEl) motionTorchHoldValEl.innerText = `${(Number(motionTorchHoldEl.value) / 1000).toFixed(1)}s`;
         if (torchSettleValEl && torchSettleEl) torchSettleValEl.innerText = `${torchSettleEl.value}ms`;
         if (globalJumpValEl && globalJumpEl) globalJumpValEl.innerText = `${Math.round(Number(globalJumpEl.value) * 100)}%`;
+        if (headlightDiffValEl && headlightDiffEl) headlightDiffValEl.innerText = headlightDiffEl.value;
+        if (headlightMinValEl && headlightMinEl) headlightMinValEl.innerText = `${Math.round(Number(headlightMinEl.value) * 100)}%`;
+        if (headlightMaxValEl && headlightMaxEl) headlightMaxValEl.innerText = `${Math.round(Number(headlightMaxEl.value) * 100)}%`;
+        if (headlightBoxEl && headlightCaptureEl) headlightBoxEl.style.display = headlightCaptureEl.checked ? 'block' : 'none';
         if (roiBoxEl && roiEnabledEl) roiBoxEl.style.display = roiEnabledEl.checked ? 'block' : 'none';
         window.alprRoiState = {
           enabled: Boolean(roiEnabledEl && roiEnabledEl.checked),
@@ -3151,10 +3209,11 @@
 
       [maxNumEl, boxConfEl, recConfEl, threadsEl, intervalMsEl, roiXEl, roiYEl, roiWEl, roiHEl,
        motionDiffEl, motionAreaEl, motionBgAlphaEl, motionMinCellsEl, motionPadEl, motionBackoffEl, motionTorchHoldEl,
-       torchSettleEl, globalJumpEl].forEach(el => {
+       torchSettleEl, globalJumpEl, headlightDiffEl, headlightMinEl, headlightMaxEl].forEach(el => {
         if (el) el.addEventListener('input', syncBadges);
       });
       if (roiEnabledEl) roiEnabledEl.addEventListener('change', syncBadges);
+      if (headlightCaptureEl) headlightCaptureEl.addEventListener('change', syncBadges);
 
       function applyFromConfig(cfg) {
         if (!cfg || typeof cfg.detLevel === 'undefined') return;
@@ -3181,6 +3240,19 @@
         }
         if (flashCaptureIsoEl && cfg.flashCaptureIso !== undefined) flashCaptureIsoEl.value = String(cfg.flashCaptureIso);
         if (flashCaptureShutterEl && cfg.flashCaptureShutterNs !== undefined) flashCaptureShutterEl.value = String(cfg.flashCaptureShutterNs);
+        if (cfg.headlightCaptureEnabled !== undefined) {
+          headlightCaptureEnabled = Boolean(cfg.headlightCaptureEnabled);
+          if (headlightCaptureEl) headlightCaptureEl.checked = headlightCaptureEnabled;
+          if (headlightBtn) {
+            headlightBtn.style.background = headlightCaptureEnabled ? 'rgba(5, 150, 105, 0.60)' : 'rgba(15,23,42,0.45)';
+            headlightBtn.style.borderColor = headlightCaptureEnabled ? '#34d399' : 'rgba(148,163,184,0.45)';
+          }
+        }
+        if (headlightDiffEl && cfg.headlightDiffThreshold !== undefined) headlightDiffEl.value = String(cfg.headlightDiffThreshold);
+        if (headlightMinEl && cfg.headlightMinRatio !== undefined) headlightMinEl.value = Number(cfg.headlightMinRatio).toFixed(2);
+        if (headlightMaxEl && cfg.headlightMaxRatio !== undefined) headlightMaxEl.value = Number(cfg.headlightMaxRatio).toFixed(2);
+        if (aeRegionEl && cfg.aeRegionEnabled !== undefined) aeRegionEl.checked = Boolean(cfg.aeRegionEnabled);
+        if (antiOverexpEl && cfg.antiOverexposureEnabled !== undefined) antiOverexpEl.checked = Boolean(cfg.antiOverexposureEnabled);
         if (roiEnabledEl && cfg.roiEnabled !== undefined) roiEnabledEl.checked = Boolean(cfg.roiEnabled);
         if (roiXEl && cfg.roiX !== undefined) roiXEl.value = Number(cfg.roiX).toFixed(2);
         if (roiYEl && cfg.roiY !== undefined) roiYEl.value = Number(cfg.roiY).toFixed(2);
@@ -3224,6 +3296,21 @@
         });
       }
 
+      if (headlightBtn) {
+        headlightBtn.addEventListener('click', () => {
+          const next = !headlightCaptureEnabled;
+          const qs = new URLSearchParams({
+            headlightCaptureEnabled: String(next),
+            flashCaptureIso: flashCaptureIsoEl ? flashCaptureIsoEl.value : '200',
+            flashCaptureShutterNs: flashCaptureShutterEl ? flashCaptureShutterEl.value : '2000000'
+          }).toString();
+          fetch(`/api/alpr/config?${qs}`, { method: 'POST', credentials: 'include', cache: 'no-store' })
+            .then(r => r.json())
+            .then(applyFromConfig)
+            .catch(() => {});
+        });
+      }
+
       if (applyBtn) {
         applyBtn.addEventListener('click', () => {
           const qs = new URLSearchParams({
@@ -3253,7 +3340,13 @@
             motionBackoffMs: motionBackoffEl ? motionBackoffEl.value : '1000',
             motionTorchHoldMs: motionTorchHoldEl ? motionTorchHoldEl.value : '5000',
             torchSettleMs: torchSettleEl ? torchSettleEl.value : '1000',
-            motionGlobalJumpRatio: globalJumpEl ? globalJumpEl.value : '0.75'
+            motionGlobalJumpRatio: globalJumpEl ? globalJumpEl.value : '0.75',
+            headlightCaptureEnabled: headlightCaptureEl ? String(headlightCaptureEl.checked) : String(headlightCaptureEnabled),
+            headlightDiffThreshold: headlightDiffEl ? headlightDiffEl.value : '55',
+            headlightMinRatio: headlightMinEl ? headlightMinEl.value : '0.02',
+            headlightMaxRatio: headlightMaxEl ? headlightMaxEl.value : '0.55',
+            aeRegionEnabled: aeRegionEl ? String(aeRegionEl.checked) : 'false',
+            antiOverexposureEnabled: antiOverexpEl ? String(antiOverexpEl.checked) : 'false'
           }).toString();
           if (statusEl) statusEl.innerText = '正在保存并重载...';
           fetch(`/api/alpr/config?${qs}`, { method: 'POST', credentials: 'include', cache: 'no-store' })

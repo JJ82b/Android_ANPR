@@ -33,5 +33,13 @@ interface CaptureBackend {
      * Manual ISO & shutter speed. [iso] <= 0 and [exposureTimeNs] <= 0 restores auto-exposure (AE).
      */
     fun setManualExposure(iso: Int, exposureTimeNs: Long) {}
+    /**
+     * Regional auto-exposure metering (normalized 0..1 in rotated display frame).
+     */
+    fun setAeRegion(enabled: Boolean, normX: Float, normY: Float, normW: Float, normH: Float, rotationDegrees: Int) {}
+    /**
+     * Supported exposure compensation index range (min..max).
+     */
+    fun getExposureRange(): Pair<Int, Int> = -4 to 4
     fun stop()
 }

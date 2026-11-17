@@ -47,11 +47,17 @@ data class AlprConfig(
     val motionBackoffMs: Long = 1000L,
     val motionTorchHoldMs: Long = 5000L,
     val torchSettleMs: Long = 1000L,
-    val motionGlobalJumpRatio: Float = 0.75f
+    val motionGlobalJumpRatio: Float = 0.75f,
+    val headlightCaptureEnabled: Boolean = false,
+    val headlightDiffThreshold: Float = 55.0f,
+    val headlightMinRatio: Float = 0.02f,
+    val headlightMaxRatio: Float = 0.55f,
+    val aeRegionEnabled: Boolean = false,
+    val antiOverexposureEnabled: Boolean = false
 ) {
     fun toJson(): String = String.format(
         Locale.US,
-        """{"detLevel":%d,"maxNum":%d,"boxConfThreshold":%.2f,"recConfidenceThreshold":%.2f,"threads":%d,"intervalMs":%d,"useGpu":%b,"gpuAvailable":%b,"motionGateEnabled":%b,"roiEnabled":%b,"roiX":%.2f,"roiY":%.2f,"roiW":%.2f,"roiH":%.2f,"motionCropEnabled":%b,"motionTorchEnabled":%b,"flashCaptureEnabled":%b,"flashCaptureIso":%d,"flashCaptureShutterNs":%d,"motionDiffThreshold":%.0f,"motionAreaRatio":%.2f,"motionBgAlpha":%.2f,"motionCropMinCells":%d,"motionCropPadRatio":%.2f,"motionBackoffMs":%d,"motionTorchHoldMs":%d,"torchSettleMs":%d,"motionGlobalJumpRatio":%.2f}""",
+        """{"detLevel":%d,"maxNum":%d,"boxConfThreshold":%.2f,"recConfidenceThreshold":%.2f,"threads":%d,"intervalMs":%d,"useGpu":%b,"gpuAvailable":%b,"motionGateEnabled":%b,"roiEnabled":%b,"roiX":%.2f,"roiY":%.2f,"roiW":%.2f,"roiH":%.2f,"motionCropEnabled":%b,"motionTorchEnabled":%b,"flashCaptureEnabled":%b,"flashCaptureIso":%d,"flashCaptureShutterNs":%d,"motionDiffThreshold":%.0f,"motionAreaRatio":%.2f,"motionBgAlpha":%.2f,"motionCropMinCells":%d,"motionCropPadRatio":%.2f,"motionBackoffMs":%d,"motionTorchHoldMs":%d,"torchSettleMs":%d,"motionGlobalJumpRatio":%.2f,"headlightCaptureEnabled":%b,"headlightDiffThreshold":%.0f,"headlightMinRatio":%.2f,"headlightMaxRatio":%.2f,"aeRegionEnabled":%b,"antiOverexposureEnabled":%b}""",
         detLevel,
         maxNum,
         boxConfThreshold,
@@ -79,7 +85,13 @@ data class AlprConfig(
         motionBackoffMs,
         motionTorchHoldMs,
         torchSettleMs,
-        motionGlobalJumpRatio
+        motionGlobalJumpRatio,
+        headlightCaptureEnabled,
+        headlightDiffThreshold,
+        headlightMinRatio,
+        headlightMaxRatio,
+        aeRegionEnabled,
+        antiOverexposureEnabled
     )
 }
 
@@ -131,7 +143,8 @@ class PlateRecognizer(context: Context) {
         val cropH: Int,
         val frameW: Int,
         val frameH: Int,
-        val timestampMs: Long
+        val timestampMs: Long,
+        val headlightCaptureActive: Boolean = false
     )
 
     @Volatile
@@ -162,6 +175,11 @@ class PlateRecognizer(context: Context) {
     @Volatile private var autoTorchActive = false
     private var lastMotionForTorchMs = 0L
     @Volatile var onMotionTorchChanged: ((Boolean) -> Unit)? = null
+    @Volatile private var headlightCaptureActive = false
+    private var lastHeadlightTriggerMs = 0L
+    @Volatile var onHeadlightCaptureChanged: ((Boolean) -> Unit)? = null
+    private var lastAntiOverexpAdjustMs = 0L
+    @Volatile var onAntiOverexposureStep: ((Int) -> Unit)? = null
 
     companion object {
         private const val PREF_DET_LEVEL = "alpr_det_level"
@@ -191,6 +209,12 @@ class PlateRecognizer(context: Context) {
         private const val PREF_MOTION_TORCH_HOLD_MS = "alpr_motion_torch_hold_ms"
         private const val PREF_TORCH_SETTLE_MS = "alpr_torch_settle_ms"
         private const val PREF_MOTION_GLOBAL_JUMP_RATIO = "alpr_motion_global_jump_ratio"
+        private const val PREF_HEADLIGHT_CAPTURE = "alpr_headlight_capture_enabled"
+        private const val PREF_HEADLIGHT_DIFF = "alpr_headlight_diff_threshold"
+        private const val PREF_HEADLIGHT_MIN_RATIO = "alpr_headlight_min_ratio"
+        private const val PREF_HEADLIGHT_MAX_RATIO = "alpr_headlight_max_ratio"
+        private const val PREF_AE_REGION = "alpr_ae_region_enabled"
+        private const val PREF_ANTI_OVEREXP = "alpr_anti_overexposure_enabled"
 
         private const val DEFAULT_DET_LEVEL = HyperLPR3.DETECT_LEVEL_HIGH
         private const val DEFAULT_MAX_NUM = 3
@@ -218,6 +242,12 @@ class PlateRecognizer(context: Context) {
         private const val DEFAULT_MOTION_TORCH_HOLD_MS = 5000L
         private const val DEFAULT_TORCH_SETTLE_MS = 1000L
         private const val DEFAULT_MOTION_GLOBAL_JUMP_RATIO = 0.75f
+        private const val DEFAULT_HEADLIGHT_CAPTURE = false
+        private const val DEFAULT_HEADLIGHT_DIFF = 55.0f
+        private const val DEFAULT_HEADLIGHT_MIN_RATIO = 0.02f
+        private const val DEFAULT_HEADLIGHT_MAX_RATIO = 0.55f
+        private const val DEFAULT_AE_REGION = false
+        private const val DEFAULT_ANTI_OVEREXP = false
 
         private const val LUMA_GRID_W = 32
         private const val LUMA_GRID_H = 18
@@ -253,6 +283,11 @@ class PlateRecognizer(context: Context) {
         @Volatile private var currentMotionTorchHoldMs: Long = DEFAULT_MOTION_TORCH_HOLD_MS
         @Volatile private var currentTorchSettleMs: Long = DEFAULT_TORCH_SETTLE_MS
         @Volatile private var currentMotionGlobalJumpRatio: Float = DEFAULT_MOTION_GLOBAL_JUMP_RATIO
+        @Volatile private var currentHeadlightCaptureEnabled: Boolean = DEFAULT_HEADLIGHT_CAPTURE
+        @Volatile private var currentHeadlightDiffThreshold: Float = DEFAULT_HEADLIGHT_DIFF
+        @Volatile private var currentHeadlightMinRatio: Float = DEFAULT_HEADLIGHT_MIN_RATIO
+        @Volatile private var currentHeadlightMaxRatio: Float = DEFAULT_HEADLIGHT_MAX_RATIO
+        @Volatile private var currentAntiOverexposureEnabled: Boolean = DEFAULT_ANTI_OVEREXP
         @Volatile var videoContextProvider: (() -> Pair<String?, Long>)? = null
 
         private fun defaultThreads(): Int =
@@ -288,12 +323,20 @@ class PlateRecognizer(context: Context) {
             val motionTorchHold = prefs.getLong(PREF_MOTION_TORCH_HOLD_MS, DEFAULT_MOTION_TORCH_HOLD_MS).coerceIn(1000L, 15000L)
             val torchSettle = prefs.getLong(PREF_TORCH_SETTLE_MS, DEFAULT_TORCH_SETTLE_MS).coerceIn(300L, 3000L)
             val globalJump = prefs.getFloat(PREF_MOTION_GLOBAL_JUMP_RATIO, DEFAULT_MOTION_GLOBAL_JUMP_RATIO).coerceIn(0.50f, 0.95f)
+            val headlightCap = prefs.getBoolean(PREF_HEADLIGHT_CAPTURE, DEFAULT_HEADLIGHT_CAPTURE)
+            val headlightDiff = prefs.getFloat(PREF_HEADLIGHT_DIFF, DEFAULT_HEADLIGHT_DIFF).coerceIn(30f, 120f)
+            val headlightMin = prefs.getFloat(PREF_HEADLIGHT_MIN_RATIO, DEFAULT_HEADLIGHT_MIN_RATIO).coerceIn(0.01f, 0.20f)
+            val headlightMax = prefs.getFloat(PREF_HEADLIGHT_MAX_RATIO, DEFAULT_HEADLIGHT_MAX_RATIO).coerceIn(headlightMin + 0.05f, 0.90f)
+            val aeRegion = prefs.getBoolean(PREF_AE_REGION, DEFAULT_AE_REGION)
+            val antiOverexp = prefs.getBoolean(PREF_ANTI_OVEREXP, DEFAULT_ANTI_OVEREXP)
             return AlprConfig(
                 detLevel, maxNum, boxConf, recConf, threads, intervalMs, useGpu, motionGate,
                 roiEnabled, roiX, roiY, roiW, roiH, motionCrop, motionTorch,
                 flashCapture, flashIso, flashShutter,
                 motionDiff, motionArea, motionAlpha, motionMinCells, motionPad, motionBackoff, motionTorchHold,
-                torchSettle, globalJump
+                torchSettle, globalJump,
+                headlightCap, headlightDiff, headlightMin, headlightMax,
+                aeRegion, antiOverexp
             )
         }
 
@@ -327,7 +370,13 @@ class PlateRecognizer(context: Context) {
                 motionBackoffMs = config.motionBackoffMs.coerceIn(300L, 3000L),
                 motionTorchHoldMs = config.motionTorchHoldMs.coerceIn(1000L, 15000L),
                 torchSettleMs = config.torchSettleMs.coerceIn(300L, 3000L),
-                motionGlobalJumpRatio = config.motionGlobalJumpRatio.coerceIn(0.50f, 0.95f)
+                motionGlobalJumpRatio = config.motionGlobalJumpRatio.coerceIn(0.50f, 0.95f),
+                headlightCaptureEnabled = config.headlightCaptureEnabled,
+                headlightDiffThreshold = config.headlightDiffThreshold.coerceIn(30f, 120f),
+                headlightMinRatio = config.headlightMinRatio.coerceIn(0.01f, 0.20f),
+                headlightMaxRatio = config.headlightMaxRatio.coerceIn(config.headlightMinRatio.coerceIn(0.01f, 0.20f) + 0.05f, 0.90f),
+                aeRegionEnabled = config.aeRegionEnabled,
+                antiOverexposureEnabled = config.antiOverexposureEnabled
             )
             PreferenceManager.getDefaultSharedPreferences(context).edit()
                 .putInt(PREF_DET_LEVEL, sanitized.detLevel)
@@ -357,6 +406,12 @@ class PlateRecognizer(context: Context) {
                 .putLong(PREF_MOTION_TORCH_HOLD_MS, sanitized.motionTorchHoldMs)
                 .putLong(PREF_TORCH_SETTLE_MS, sanitized.torchSettleMs)
                 .putFloat(PREF_MOTION_GLOBAL_JUMP_RATIO, sanitized.motionGlobalJumpRatio)
+                .putBoolean(PREF_HEADLIGHT_CAPTURE, sanitized.headlightCaptureEnabled)
+                .putFloat(PREF_HEADLIGHT_DIFF, sanitized.headlightDiffThreshold)
+                .putFloat(PREF_HEADLIGHT_MIN_RATIO, sanitized.headlightMinRatio)
+                .putFloat(PREF_HEADLIGHT_MAX_RATIO, sanitized.headlightMaxRatio)
+                .putBoolean(PREF_AE_REGION, sanitized.aeRegionEnabled)
+                .putBoolean(PREF_ANTI_OVEREXP, sanitized.antiOverexposureEnabled)
                 .apply()
             return sanitized
         }
@@ -422,6 +477,11 @@ class PlateRecognizer(context: Context) {
             currentMotionTorchHoldMs = config.motionTorchHoldMs
             currentTorchSettleMs = config.torchSettleMs
             currentMotionGlobalJumpRatio = config.motionGlobalJumpRatio
+            currentHeadlightCaptureEnabled = config.headlightCaptureEnabled
+            currentHeadlightDiffThreshold = config.headlightDiffThreshold
+            currentHeadlightMinRatio = config.headlightMinRatio
+            currentHeadlightMaxRatio = config.headlightMaxRatio
+            currentAntiOverexposureEnabled = config.antiOverexposureEnabled
             if (sdkInitialized) return
             try {
                 val param = buildParameter(config, null)
@@ -475,9 +535,21 @@ class PlateRecognizer(context: Context) {
         currentMotionTorchHoldMs = saved.motionTorchHoldMs
         currentTorchSettleMs = saved.torchSettleMs
         currentMotionGlobalJumpRatio = saved.motionGlobalJumpRatio
+        currentHeadlightCaptureEnabled = saved.headlightCaptureEnabled
+        currentHeadlightDiffThreshold = saved.headlightDiffThreshold
+        currentHeadlightMinRatio = saved.headlightMinRatio
+        currentHeadlightMaxRatio = saved.headlightMaxRatio
+        currentAntiOverexposureEnabled = saved.antiOverexposureEnabled
+        if (!saved.antiOverexposureEnabled) {
+            onAntiOverexposureStep?.invoke(0)
+        }
         if ((!saved.motionGateEnabled || !saved.motionTorchEnabled) && autoTorchActive) {
             autoTorchActive = false
             onMotionTorchChanged?.invoke(false)
+        }
+        if (!saved.headlightCaptureEnabled && headlightCaptureActive) {
+            headlightCaptureActive = false
+            onHeadlightCaptureChanged?.invoke(false)
         }
         effectiveIntervalMs = saved.intervalMs
         consecutiveStaticChecks = 0
@@ -539,7 +611,12 @@ class PlateRecognizer(context: Context) {
     }
 
     private data class NormRect(val x1: Float, val y1: Float, val x2: Float, val y2: Float)
-    private data class MotionAnalysis(val hasMotion: Boolean, val cropNorm: NormRect?, val clusterNorm: NormRect? = null)
+    private data class MotionAnalysis(
+        val hasMotion: Boolean,
+        val cropNorm: NormRect?,
+        val clusterNorm: NormRect? = null,
+        val hasPartialBrightJump: Boolean = false
+    )
 
     private fun activeRoiNorm(): NormRect {
         if (!currentRoiEnabled) return NormRect(0f, 0f, 1f, 1f)
@@ -650,27 +727,32 @@ class PlateRecognizer(context: Context) {
         val shift = shiftSum / totalSamples
         val diffThreshold = currentMotionDiffThreshold
         val bgAlpha = currentMotionBgAlpha
+        val brightThreshold = currentHeadlightDiffThreshold
         var changedCount = 0
+        var brightJumpCount = 0
         for (i in 0 until totalSamples) {
             val diff = kotlin.math.abs(lumaCur[i] - lumaBg[i] - shift)
             val changed = diff >= diffThreshold
             changedGrid[i] = changed
             if (changed) changedCount++
+            if (diff >= brightThreshold) brightJumpCount++
             lumaBg[i] += (lumaCur[i] - lumaBg[i]) * bgAlpha
         }
 
         val changedRatio = changedCount.toFloat() / totalSamples
+        val brightJumpRatio = brightJumpCount.toFloat() / totalSamples
+        val isPartialBrightJump = brightJumpRatio in currentHeadlightMinRatio..currentHeadlightMaxRatio
         if (changedRatio >= currentMotionGlobalJumpRatio && kotlin.math.abs(shift) >= diffThreshold) {
             // 全屏均匀亮度剧变（如开关灯/AE突变），重设背景避免误判运动
             lumaCur.copyInto(lumaBg)
             return MotionAnalysis(hasMotion = false, cropNorm = null)
         }
-        if (changedRatio < currentMotionAreaRatio) {
+        if (changedRatio < currentMotionAreaRatio && !isPartialBrightJump) {
             return MotionAnalysis(hasMotion = false, cropNorm = null)
         }
 
         if (changedRatio >= MOTION_CROP_MAX_RATIO) {
-            return MotionAnalysis(hasMotion = true, cropNorm = null)
+            return MotionAnalysis(hasMotion = true, cropNorm = null, hasPartialBrightJump = isPartialBrightJump)
         }
 
         // 寻找最大 4-邻域连通移动团块，避免零星树影/噪点拉大裁剪框
@@ -730,7 +812,7 @@ class PlateRecognizer(context: Context) {
 
         val clusterRatio = bestCount.toFloat() / totalSamples
         if (bestCount < currentMotionCropMinCells || clusterRatio >= MOTION_CROP_MAX_RATIO) {
-            return MotionAnalysis(hasMotion = true, cropNorm = null)
+            return MotionAnalysis(hasMotion = true, cropNorm = null, hasPartialBrightJump = isPartialBrightJump)
         }
 
         // 将团块外接框映射回全图归一化坐标，四周各外扩 28% 并按最小尺寸 640×360 兜底
@@ -741,7 +823,7 @@ class PlateRecognizer(context: Context) {
         val clusterNorm = NormRect(rawX1, rawY1, rawX2, rawY2)
 
         if (!currentMotionCropEnabled || latestPlates.isNotEmpty()) {
-            return MotionAnalysis(hasMotion = true, cropNorm = null, clusterNorm = clusterNorm)
+            return MotionAnalysis(hasMotion = true, cropNorm = null, clusterNorm = clusterNorm, hasPartialBrightJump = isPartialBrightJump)
         }
 
         var cx1 = rawX1
@@ -783,9 +865,9 @@ class PlateRecognizer(context: Context) {
         cy2 = cy2.coerceIn(roi.y1, roi.y2)
 
         if (cx2 - cx1 >= roiW * 0.88f && cy2 - cy1 >= roiH * 0.88f) {
-            return MotionAnalysis(hasMotion = true, cropNorm = null, clusterNorm = clusterNorm)
+            return MotionAnalysis(hasMotion = true, cropNorm = null, clusterNorm = clusterNorm, hasPartialBrightJump = isPartialBrightJump)
         }
-        return MotionAnalysis(hasMotion = true, cropNorm = NormRect(cx1, cy1, cx2, cy2), clusterNorm = clusterNorm)
+        return MotionAnalysis(hasMotion = true, cropNorm = NormRect(cx1, cy1, cx2, cy2), clusterNorm = clusterNorm, hasPartialBrightJump = isPartialBrightJump)
     }
 
     private fun cropNv21Full(
@@ -929,12 +1011,14 @@ class PlateRecognizer(context: Context) {
         var motionHasMotion = false
         var motionCropActive = false
         var motionCluster: NormRect? = null
+        var sampledCurGrid = false
 
-        if (currentMotionGateEnabled) {
+        if (currentMotionGateEnabled || currentHeadlightCaptureEnabled) {
             val motion = analyzeSceneMotion(nv21Source, width, height, rotationDegrees, baseRoi)
+            sampledCurGrid = true
             motionHasMotion = motion.hasMotion
             motionCluster = motion.clusterNorm
-            if (currentMotionTorchEnabled) {
+            if (currentMotionGateEnabled && currentMotionTorchEnabled) {
                 if (motion.hasMotion) {
                     lastMotionForTorchMs = now
                     if (!autoTorchActive) {
@@ -946,37 +1030,94 @@ class PlateRecognizer(context: Context) {
                     onMotionTorchChanged?.invoke(false)
                 }
             }
-            if (!motion.hasMotion && latestPlates.isEmpty()) {
-                val rotW = if (rotationDegrees == 90 || rotationDegrees == 270) height else width
-                val rotH = if (rotationDegrees == 90 || rotationDegrees == 270) width else height
-                latestMotionDebug = MotionDebugInfo(
-                    hasMotion = false,
-                    motionCropActive = false,
-                    clusterX1 = 0f, clusterY1 = 0f, clusterX2 = 0f, clusterY2 = 0f,
-                    cropX1 = 0f, cropY1 = 0f, cropX2 = 0f, cropY2 = 0f,
-                    cropW = 0, cropH = 0, frameW = rotW, frameH = rotH,
-                    timestampMs = now
-                )
-                consecutiveStaticChecks++
-                if (consecutiveStaticChecks >= 2 && consecutiveStaticChecks % STATIC_HEARTBEAT_INTERVAL != 0) {
-                    effectiveIntervalMs = maxOf(currentIntervalMs, currentMotionBackoffMs)
-                    isProcessing.set(false)
-                    return
+            if (currentHeadlightCaptureEnabled) {
+                if (motion.hasPartialBrightJump) {
+                    lastHeadlightTriggerMs = now
+                    if (!headlightCaptureActive) {
+                        headlightCaptureActive = true
+                        onHeadlightCaptureChanged?.invoke(true)
+                    }
+                } else if (headlightCaptureActive && latestPlates.isEmpty() && now - lastHeadlightTriggerMs >= currentMotionTorchHoldMs) {
+                    headlightCaptureActive = false
+                    onHeadlightCaptureChanged?.invoke(false)
                 }
-            } else if (motion.hasMotion) {
-                consecutiveStaticChecks = 0
-                effectiveIntervalMs = currentIntervalMs
-                if (currentMotionCropEnabled && motion.cropNorm != null) {
-                    targetNorm = motion.cropNorm
-                    motionCropActive = true
+            } else if (headlightCaptureActive) {
+                headlightCaptureActive = false
+                onHeadlightCaptureChanged?.invoke(false)
+            }
+            if (currentMotionGateEnabled) {
+                if (!motion.hasMotion && latestPlates.isEmpty()) {
+                    val rotW = if (rotationDegrees == 90 || rotationDegrees == 270) height else width
+                    val rotH = if (rotationDegrees == 90 || rotationDegrees == 270) width else height
+                    latestMotionDebug = MotionDebugInfo(
+                        hasMotion = false,
+                        motionCropActive = false,
+                        clusterX1 = 0f, clusterY1 = 0f, clusterX2 = 0f, clusterY2 = 0f,
+                        cropX1 = 0f, cropY1 = 0f, cropX2 = 0f, cropY2 = 0f,
+                        cropW = 0, cropH = 0, frameW = rotW, frameH = rotH,
+                        timestampMs = now,
+                        headlightCaptureActive = headlightCaptureActive
+                    )
+                    consecutiveStaticChecks++
+                    if (consecutiveStaticChecks >= 2 && consecutiveStaticChecks % STATIC_HEARTBEAT_INTERVAL != 0) {
+                        effectiveIntervalMs = maxOf(currentIntervalMs, currentMotionBackoffMs)
+                        isProcessing.set(false)
+                        return
+                    }
+                } else if (motion.hasMotion) {
+                    consecutiveStaticChecks = 0
+                    effectiveIntervalMs = currentIntervalMs
+                    if (currentMotionCropEnabled && motion.cropNorm != null) {
+                        targetNorm = motion.cropNorm
+                        motionCropActive = true
+                    }
+                } else {
+                    // 画面静止但当前仍有已识别车牌：保持心跳或常规频率以追踪离开
+                    effectiveIntervalMs = currentIntervalMs
                 }
             } else {
-                // 画面静止但当前仍有已识别车牌：保持心跳或常规频率以追踪离开
                 effectiveIntervalMs = currentIntervalMs
             }
         } else {
             effectiveIntervalMs = currentIntervalMs
             latestMotionDebug = null
+        }
+
+        if (currentAntiOverexposureEnabled && now - lastAntiOverexpAdjustMs >= 450L) {
+            lastAntiOverexpAdjustMs = now
+            val totalSamples = LUMA_GRID_W * LUMA_GRID_H
+            var overCount = 0
+            var lumaSum = 0f
+            var maxLuma = 0f
+            if (sampledCurGrid) {
+                for (i in 0 until totalSamples) {
+                    val v = lumaCur[i]
+                    lumaSum += v
+                    if (v > maxLuma) maxLuma = v
+                    if (v >= 235f) overCount++
+                }
+            } else if (nv21Source.size >= width * height && width >= LUMA_GRID_W && height >= LUMA_GRID_H) {
+                val roiW = baseRoi.x2 - baseRoi.x1
+                val roiH = baseRoi.y2 - baseRoi.y1
+                for (gy in 0 until LUMA_GRID_H) {
+                    val ry = baseRoi.y1 + ((gy + 0.5f) / LUMA_GRID_H) * roiH
+                    for (gx in 0 until LUMA_GRID_W) {
+                        val rx = baseRoi.x1 + ((gx + 0.5f) / LUMA_GRID_W) * roiW
+                        val (sx, sy) = rotatedToSensorPixel(rx, ry, width, height, rotationDegrees)
+                        val v = (nv21Source[sy * width + sx].toInt() and 0xFF).toFloat()
+                        lumaSum += v
+                        if (v > maxLuma) maxLuma = v
+                        if (v >= 235f) overCount++
+                    }
+                }
+            }
+            val overRatio = overCount.toFloat() / totalSamples
+            val meanLuma = lumaSum / totalSamples
+            if (overRatio >= 0.06f || (overRatio >= 0.03f && maxLuma >= 250f)) {
+                onAntiOverexposureStep?.invoke(-1)
+            } else if (overRatio <= 0.01f && meanLuma < 115f) {
+                onAntiOverexposureStep?.invoke(1)
+            }
         }
 
         // 计算传感器偶数对齐裁剪窗口及在旋转后全图中的偏移
@@ -1042,7 +1183,7 @@ class PlateRecognizer(context: Context) {
             else -> cropY
         }.toFloat()
 
-        if (currentMotionGateEnabled) {
+        if (currentMotionGateEnabled || currentHeadlightCaptureEnabled) {
             val rotW = (if (rotationDegrees == 90 || rotationDegrees == 270) height else width).coerceAtLeast(1)
             val rotH = (if (rotationDegrees == 90 || rotationDegrees == 270) width else height).coerceAtLeast(1)
             val cropRotW = if (rotationDegrees == 90 || rotationDegrees == 270) cropH else cropW
@@ -1062,7 +1203,8 @@ class PlateRecognizer(context: Context) {
                 cropH = cropRotH,
                 frameW = rotW,
                 frameH = rotH,
-                timestampMs = now
+                timestampMs = now,
+                headlightCaptureActive = headlightCaptureActive
             )
         }
 

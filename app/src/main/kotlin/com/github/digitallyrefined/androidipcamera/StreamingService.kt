@@ -123,9 +123,17 @@ class StreamingService : LifecycleService() {
     private var torchVerifyJob: kotlinx.coroutines.Job? = null
     @Volatile private var cameraCloseStartTime: Long = 0L
     @Volatile private var motionTorchLitByAuto = false
+    @Volatile private var headlightCaptureModeActive = false
+    @Volatile private var antiOverexposureOffset = 0
     private val plateRecognizer by lazy {
         com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer(this).apply {
             onMotionTorchChanged = { turnOn -> handleAutoMotionTorch(turnOn) }
+            onHeadlightCaptureChanged = { active ->
+                headlightCaptureModeActive = active
+                launchMain { applyCurrentManualExposure() }
+                Log.i(TAG, if (active) "检测到局部亮度大幅变化（车灯），进入抓拍模式" else "局部高亮恢复平稳，退出抓拍模式")
+            }
+            onAntiOverexposureStep = { step -> handleAntiOverexposureStep(step) }
         }
     }
 
@@ -461,6 +469,7 @@ class StreamingService : LifecycleService() {
                                 put("frameW", md.frameW)
                                 put("frameH", md.frameH)
                                 put("timestampMs", md.timestampMs)
+                                put("headlightCaptureActive", md.headlightCaptureActive)
                             })
                         }
                         put("plates", org.json.JSONArray().apply {
@@ -510,11 +519,20 @@ class StreamingService : LifecycleService() {
                         motionBackoffMs = params["motionBackoffMs"]?.toLongOrNull() ?: current.motionBackoffMs,
                         motionTorchHoldMs = params["motionTorchHoldMs"]?.toLongOrNull() ?: current.motionTorchHoldMs,
                         torchSettleMs = params["torchSettleMs"]?.toLongOrNull() ?: current.torchSettleMs,
-                        motionGlobalJumpRatio = params["motionGlobalJumpRatio"]?.toFloatOrNull() ?: current.motionGlobalJumpRatio
+                        motionGlobalJumpRatio = params["motionGlobalJumpRatio"]?.toFloatOrNull() ?: current.motionGlobalJumpRatio,
+                        headlightCaptureEnabled = params["headlightCaptureEnabled"]?.let { it == "true" || it == "1" } ?: current.headlightCaptureEnabled,
+                        headlightDiffThreshold = params["headlightDiffThreshold"]?.toFloatOrNull() ?: current.headlightDiffThreshold,
+                        headlightMinRatio = params["headlightMinRatio"]?.toFloatOrNull() ?: current.headlightMinRatio,
+                        headlightMaxRatio = params["headlightMaxRatio"]?.toFloatOrNull() ?: current.headlightMaxRatio,
+                        aeRegionEnabled = params["aeRegionEnabled"]?.let { it == "true" || it == "1" } ?: current.aeRegionEnabled,
+                        antiOverexposureEnabled = params["antiOverexposureEnabled"]?.let { it == "true" || it == "1" } ?: current.antiOverexposureEnabled
                     )
                     val saved = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.saveConfig(this, updated)
                     plateRecognizer.reloadConfig(saved)
-                    launchMain { applyCurrentManualExposure() }
+                    launchMain {
+                        applyCurrentManualExposure()
+                        applyCurrentAeRegion(cfg = saved)
+                    }
                     saved.toJson()
                 },
                 onLoopRecordingGet = {
@@ -1348,6 +1366,53 @@ class StreamingService : LifecycleService() {
         focus?.toFloatOrNull()?.let { b.setManualFocus(it) }
 
         applyCurrentManualExposure(b)
+        applyCurrentAeRegion(b)
+    }
+
+    private fun applyCurrentAeRegion(
+        b: CaptureBackend? = backend,
+        cfg: com.github.digitallyrefined.androidipcamera.helpers.AlprConfig = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this)
+    ) {
+        val target = b ?: return
+        if (!cfg.aeRegionEnabled) {
+            target.setAeRegion(false, 0f, 0f, 1f, 1f, 0)
+            return
+        }
+        val rx = if (cfg.roiEnabled) cfg.roiX else 0.15f
+        val ry = if (cfg.roiEnabled) cfg.roiY else 0.40f
+        val rw = if (cfg.roiEnabled) cfg.roiW else 0.70f
+        val rh = if (cfg.roiEnabled) cfg.roiH else 0.55f
+        target.setAeRegion(true, rx, ry, rw, rh, configuredCameraRotationDegrees())
+    }
+
+    private fun handleAntiOverexposureStep(step: Int) {
+        launchMain {
+            val target = backend ?: return@launchMain
+            val p = PreferenceManager.getDefaultSharedPreferences(this@StreamingService)
+            val id = camId()
+            val phys = id?.substringAfter(':', id)
+            val baseEv = when {
+                id != null && p.contains("exposure_$id") -> p.getString("exposure_$id", "0")?.toIntOrNull()
+                phys != null && p.contains("exposure_$phys") -> p.getString("exposure_$phys", "0")?.toIntOrNull()
+                else -> 0
+            } ?: 0
+            val (lo, hi) = target.getExposureRange()
+            if (step == 0) {
+                if (antiOverexposureOffset != 0) {
+                    antiOverexposureOffset = 0
+                    target.setExposure(baseEv.coerceIn(lo, hi))
+                }
+                return@launchMain
+            }
+            val nextOffset = when {
+                step < 0 -> (antiOverexposureOffset - 1).coerceAtLeast(lo - baseEv)
+                else -> (antiOverexposureOffset + 1).coerceAtMost(0)
+            }
+            if (nextOffset != antiOverexposureOffset) {
+                antiOverexposureOffset = nextOffset
+                target.setExposure((baseEv + antiOverexposureOffset).coerceIn(lo, hi))
+            }
+        }
     }
 
     private fun applyCurrentManualExposure(
@@ -1358,12 +1423,10 @@ class StreamingService : LifecycleService() {
         val p = PreferenceManager.getDefaultSharedPreferences(this)
         val torchLit = torchLitOverride
             ?: (target.getTorch() || motionTorchLitByAuto || deviceTorchOn || p.getString(PREF_CAMERA_TORCH, "off") == "on")
-        if (torchLit) {
-            val cfg = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this)
-            if (cfg.flashCaptureEnabled) {
-                target.setManualExposure(cfg.flashCaptureIso, cfg.flashCaptureShutterNs)
-                return
-            }
+        val cfg = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this)
+        if ((torchLit && cfg.flashCaptureEnabled) || (headlightCaptureModeActive && cfg.headlightCaptureEnabled)) {
+            target.setManualExposure(cfg.flashCaptureIso, cfg.flashCaptureShutterNs)
+            return
         }
         val id = camId()
         if (id == null) {

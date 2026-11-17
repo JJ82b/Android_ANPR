@@ -86,6 +86,7 @@ class CameraXCapture(
     @Volatile private var torchEnabled = false
     private var manualIso: Int? = null
     private var manualExposureTimeNs: Long? = null
+    private var aeRegionParams: FloatArray? = null
     /** Whether the bound camera can drive the flash at all — auxiliary lenses (ultra-wide, depth)
      *  report FLASH_INFO_AVAILABLE=false on many multi-lens phones and enableTorch() then fails
      *  asynchronously, which a synchronous try/catch never sees. Lazy because it reads
@@ -429,7 +430,7 @@ class CameraXCapture(
             future.addListener({
                 try {
                     future.get()
-                    if (manualFocus != null || manualIso != null || manualExposureTimeNs != null) {
+                    if (manualFocus != null || manualIso != null || manualExposureTimeNs != null || aeRegionParams != null) {
                         applyCamera2Overrides()
                     }
                 } catch (e: Exception) {
@@ -475,6 +476,33 @@ class CameraXCapture(
         applyCamera2Overrides()
     }
 
+    override fun setAeRegion(
+        enabled: Boolean,
+        normX: Float,
+        normY: Float,
+        normW: Float,
+        normH: Float,
+        rotationDegrees: Int
+    ) {
+        aeRegionParams = if (enabled) {
+            floatArrayOf(
+                normX.coerceIn(0f, 0.9f),
+                normY.coerceIn(0f, 0.9f),
+                normW.coerceIn(0.1f, 1f),
+                normH.coerceIn(0.1f, 1f),
+                rotationDegrees.toFloat()
+            )
+        } else {
+            null
+        }
+        applyCamera2Overrides()
+    }
+
+    override fun getExposureRange(): Pair<Int, Int> {
+        val r = camera?.cameraInfo?.exposureState?.exposureCompensationRange
+        return if (r != null) r.lower to r.upper else -4 to 4
+    }
+
     @OptIn(ExperimentalCamera2Interop::class)
     private fun applyCamera2Overrides(retriesLeft: Int = 3) {
         val cam = camera ?: return
@@ -483,7 +511,8 @@ class CameraXCapture(
             val focus = manualFocus
             val iso = manualIso
             val expNs = manualExposureTimeNs
-            if (focus == null && iso == null && expNs == null) {
+            val aeRegion = aeRegionParams
+            if (focus == null && iso == null && expNs == null && aeRegion == null) {
                 val f = c2.clearCaptureRequestOptions()
                 f.addListener({
                     try { f.get() } catch (e: Exception) { Log.w(TAG, "clearCamera2Overrides: ${e.message}") }
@@ -521,6 +550,46 @@ class CameraXCapture(
                     )
                 }
                 Log.i(TAG, "applyCamera2Overrides: ISO=$targetIso shutterNs=$targetExpNs torch=$torchEnabled")
+            } else if (aeRegion != null) {
+                val maxAe = c2Info.getCameraCharacteristic(CameraCharacteristics.CONTROL_MAX_REGIONS_AE) ?: 0
+                val activeRect = c2Info.getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+                if (maxAe > 0 && activeRect != null) {
+                    val nx1 = aeRegion[0]
+                    val ny1 = aeRegion[1]
+                    val nx2 = (nx1 + aeRegion[2]).coerceIn(nx1 + 0.05f, 1f)
+                    val ny2 = (ny1 + aeRegion[3]).coerceIn(ny1 + 0.05f, 1f)
+                    val rot = aeRegion[4].toInt()
+                    val aw = activeRect.width()
+                    val ah = activeRect.height()
+                    val sx1: Float; val sy1: Float; val sx2: Float; val sy2: Float
+                    when (rot) {
+                        90 -> {
+                            sx1 = ny1 * aw; sx2 = ny2 * aw
+                            sy1 = (1f - nx2) * ah; sy2 = (1f - nx1) * ah
+                        }
+                        180 -> {
+                            sx1 = (1f - nx2) * aw; sx2 = (1f - nx1) * aw
+                            sy1 = (1f - ny2) * ah; sy2 = (1f - ny1) * ah
+                        }
+                        270 -> {
+                            sx1 = (1f - ny2) * aw; sx2 = (1f - ny1) * aw
+                            sy1 = nx1 * ah; sy2 = nx2 * ah
+                        }
+                        else -> {
+                            sx1 = nx1 * aw; sx2 = nx2 * aw
+                            sy1 = ny1 * ah; sy2 = ny2 * ah
+                        }
+                    }
+                    val left = (activeRect.left + sx1.toInt()).coerceIn(activeRect.left, activeRect.right - 2)
+                    val top = (activeRect.top + sy1.toInt()).coerceIn(activeRect.top, activeRect.bottom - 2)
+                    val w = (sx2 - sx1).toInt().coerceIn(2, activeRect.right - left)
+                    val h = (sy2 - sy1).toInt().coerceIn(2, activeRect.bottom - top)
+                    val mr = android.hardware.camera2.params.MeteringRectangle(
+                        left, top, w, h, android.hardware.camera2.params.MeteringRectangle.METERING_WEIGHT_MAX - 1
+                    )
+                    builder.setCaptureRequestOption(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(mr))
+                    Log.i(TAG, "applyCamera2Overrides: AE_REGION=($left,$top,${w}x$h)")
+                }
             }
             val future = c2.setCaptureRequestOptions(builder.build())
             future.addListener({
