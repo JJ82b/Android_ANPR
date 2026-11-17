@@ -372,6 +372,14 @@
       overflow: hidden;
     }
 
+    .playback-video-wrap:fullscreen,
+    .playback-video-wrap:-webkit-full-screen {
+      width: 100% !important;
+      height: 100% !important;
+      border: none;
+      border-radius: 0;
+    }
+
     .playback-video-wrap video {
       position: absolute;
       inset: 0;
@@ -628,8 +636,15 @@
             </label>
 
             <div id="alpr-flash-capture-box" style="margin-top: 6px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(250, 204, 21, 0.35);">
-              <div style="font-size: 12px; color: #fde047; margin-bottom: 6px;" data-i18n="alprFlashCaptureParams">闪光/车灯抓拍预设 (使用以下 ISO 与快门)</div>
-              <div style="display: flex; gap: 8px;">
+              <div style="font-size: 12px; color: #fde047; margin-bottom: 6px;" data-i18n="alprFlashCaptureParams">闪光/车灯抓拍预设</div>
+              <label for="alprFlashCaptureMode" data-i18n="alprFlashCaptureModeLabel">抓拍曝光策略</label>
+              <select id="alprFlashCaptureMode" class="camera-select" style="margin-bottom: 8px;">
+                <option value="manual" data-i18n="alprCaptureModeManual">手动感光度 + 快门速度</option>
+                <option value="ae_region" data-i18n="alprCaptureModeAeRegion">区域曝光测光 (跟随 ROI / 下车道)</option>
+                <option value="anti_overexposure" data-i18n="alprCaptureModePeak">峰值防过曝保护 (高光自动降 EV)</option>
+                <option value="ae_region_peak" data-i18n="alprCaptureModeAePeak">区域测光 + 峰值防过曝</option>
+              </select>
+              <div id="alpr-flash-manual-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
                 <div style="flex: 1;">
                   <label for="alprFlashCaptureIso" data-i18n="isoLabel">感光度 (ISO)</label>
                   <select id="alprFlashCaptureIso" class="camera-select" style="margin-bottom: 0;">
@@ -654,21 +669,15 @@
                   </select>
                 </div>
               </div>
+              <label style="display: flex; align-items: center; gap: 8px; margin-top: 2px; cursor: pointer;">
+                <input type="checkbox" id="alprSkipFastShutter" checked style="width: auto; margin: 0;">
+                <span data-i18n="alprSkipFastShutter">快门 ≥ 1/250s 时无需进入抓拍模式</span>
+              </label>
             </div>
 
             <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
               <input type="checkbox" id="alprHeadlightCapture" style="width: auto; margin: 0;">
               <span data-i18n="alprHeadlightCapture">车灯高亮抓拍 (仅局部亮度剧变进入抓拍模式)</span>
-            </label>
-
-            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
-              <input type="checkbox" id="alprAeRegion" style="width: auto; margin: 0;">
-              <span data-i18n="alprAeRegion">区域曝光测光 (跟随 ROI / 默认中下车道)</span>
-            </label>
-
-            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
-              <input type="checkbox" id="alprAntiOverexposure" style="width: auto; margin: 0;">
-              <span data-i18n="alprAntiOverexposure">峰值防过曝保护 (高光溢出时自动降 EV)</span>
             </label>
             <div id="alpr-headlight-box" style="display: none; margin-top: 6px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(52, 211, 153, 0.35);">
               <label for="alprHeadlightDiff"><span data-i18n="alprHeadlightDiff">车灯亮度跳变阈值</span> <span class="val-badge" id="alprHeadlightDiffVal">55</span></label>
@@ -921,12 +930,15 @@
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <button id="pbPlayPauseBtn" type="button" class="btn btn-action" style="width:auto;margin:0;padding:4px 12px;">▶ 播放</button>
             <button id="pbBack10Btn" type="button" class="btn" style="margin:0;padding:4px 9px;">-10s</button>
+            <button id="pbBack5Btn" type="button" class="btn" style="margin:0;padding:4px 9px;">-5s</button>
+            <button id="pbFwd5Btn" type="button" class="btn" style="margin:0;padding:4px 9px;">+5s</button>
             <button id="pbFwd10Btn" type="button" class="btn" style="margin:0;padding:4px 9px;">+10s</button>
             <select id="pbSpeedSelect" class="camera-select" style="width:auto;margin:0;padding:4px 8px;">
               <option value="1">1.0x</option>
               <option value="2">2.0x</option>
               <option value="4">4.0x</option>
             </select>
+            <button id="pbFullscreenBtn" type="button" class="btn" style="margin:0;padding:4px 9px;" data-i18n="btnFullscreen">⛶ 全屏</button>
             <span id="playbackClockText" style="font-family:monospace;font-size:14px;font-weight:700;color:#38bdf8;margin-left:4px;">--:--:--</span>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
@@ -947,8 +959,16 @@
           <span id="playbackSnapTitle" data-i18n="pbSnapTitle">全景抓拍</span>
           <button id="playbackSnapClose" type="button" class="btn" style="padding:2px 8px;font-size:11px;" data-i18n="pbSnapClose">收起</button>
         </div>
-        <img id="playbackFullSnap" alt="全景抓拍" style="max-width:100%;max-height:220px;border-radius:6px;display:block;margin:0 auto;">
+        <img id="playbackFullSnap" alt="全景抓拍" title="点击查看大图" style="max-width:100%;max-height:220px;border-radius:6px;display:block;margin:0 auto;cursor:zoom-in;">
       </div>
+    </div>
+
+    <div id="imageLightbox" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(5,7,11,0.92);align-items:center;justify-content:center;flex-direction:column;padding:16px;">
+      <div style="width:100%;max-width:1100px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:#e2e8f0;">
+        <span id="imageLightboxCaption" style="font-size:14px;font-weight:600;"></span>
+        <button id="imageLightboxClose" type="button" class="btn" style="padding:4px 12px;font-size:13px;">✕ 关闭</button>
+      </div>
+      <img id="imageLightboxImg" alt="大图预览" style="max-width:94vw;max-height:84vh;object-fit:contain;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,0.7);">
     </div>
 
     <div class="playback-sidebar">
@@ -1018,7 +1038,13 @@
         alprTitle: 'ALPR 车牌识别',
         alprFlashCaptureBtn: '闪光抓拍',
         alprHeadlightBtn: '车灯抓拍',
-        alprFlashCaptureParams: '闪光/车灯抓拍预设 (使用以下 ISO 与快门)',
+        alprFlashCaptureParams: '闪光/车灯抓拍预设',
+        alprFlashCaptureModeLabel: '抓拍曝光策略',
+        alprCaptureModeManual: '手动感光度 + 快门速度',
+        alprCaptureModeAeRegion: '区域曝光测光 (跟随 ROI / 下车道)',
+        alprCaptureModePeak: '峰值防过曝保护 (高光自动降 EV)',
+        alprCaptureModeAePeak: '区域测光 + 峰值防过曝',
+        alprSkipFastShutter: '快门 ≥ 1/250s 时无需进入抓拍模式',
         alprHeadlightCapture: '车灯高亮抓拍 (仅局部亮度剧变进入抓拍模式)',
         alprHeadlightDiff: '车灯亮度跳变阈值',
         alprHeadlightMinRatio: '高亮区最小占比',
@@ -1158,7 +1184,13 @@
         alprTitle: 'ALPR Plate',
         alprFlashCaptureBtn: 'Flash Cap',
         alprHeadlightBtn: 'Headlight Cap',
-        alprFlashCaptureParams: 'Flash / Headlight Capture Preset (ISO & Shutter)',
+        alprFlashCaptureParams: 'Flash / Headlight Capture Preset',
+        alprFlashCaptureModeLabel: 'Capture Exposure Strategy',
+        alprCaptureModeManual: 'Manual ISO + Shutter Speed',
+        alprCaptureModeAeRegion: 'Regional AE Metering (ROI / Lane)',
+        alprCaptureModePeak: 'Highlight Anti-Overexposure (Auto EV)',
+        alprCaptureModeAePeak: 'Regional AE + Highlight Protection',
+        alprSkipFastShutter: 'Skip Capture Mode if Shutter ≥ 1/250s',
         alprHeadlightCapture: 'Headlight Capture (Partial Large Luma Jump)',
         alprHeadlightDiff: 'Headlight Luma Jump Threshold',
         alprHeadlightMinRatio: 'Min Bright Area Ratio',
@@ -3127,8 +3159,11 @@
       const motionTorchEl = getElById('alprMotionTorch');
       const flashCaptureBtn = getElById('alpr-flash-capture-btn');
       const headlightBtn = getElById('alpr-headlight-btn');
+      const flashCaptureModeEl = getElById('alprFlashCaptureMode');
+      const flashManualRowEl = getElById('alpr-flash-manual-row');
       const flashCaptureIsoEl = getElById('alprFlashCaptureIso');
       const flashCaptureShutterEl = getElById('alprFlashCaptureShutter');
+      const skipFastShutterEl = getElById('alprSkipFastShutter');
       const headlightCaptureEl = getElById('alprHeadlightCapture');
       const headlightBoxEl = getElById('alpr-headlight-box');
       const headlightDiffEl = getElById('alprHeadlightDiff');
@@ -3137,8 +3172,6 @@
       const headlightMinValEl = getElById('alprHeadlightMinRatioVal');
       const headlightMaxEl = getElById('alprHeadlightMaxRatio');
       const headlightMaxValEl = getElById('alprHeadlightMaxRatioVal');
-      const aeRegionEl = getElById('alprAeRegion');
-      const antiOverexpEl = getElById('alprAntiOverexposure');
       let flashCaptureEnabled = false;
       let headlightCaptureEnabled = false;
       const roiEnabledEl = getElById('alprRoiEnabled');
@@ -3197,6 +3230,7 @@
         if (headlightMinValEl && headlightMinEl) headlightMinValEl.innerText = `${Math.round(Number(headlightMinEl.value) * 100)}%`;
         if (headlightMaxValEl && headlightMaxEl) headlightMaxValEl.innerText = `${Math.round(Number(headlightMaxEl.value) * 100)}%`;
         if (headlightBoxEl && headlightCaptureEl) headlightBoxEl.style.display = headlightCaptureEl.checked ? 'block' : 'none';
+        if (flashManualRowEl && flashCaptureModeEl) flashManualRowEl.style.display = flashCaptureModeEl.value === 'manual' ? 'flex' : 'none';
         if (roiBoxEl && roiEnabledEl) roiBoxEl.style.display = roiEnabledEl.checked ? 'block' : 'none';
         window.alprRoiState = {
           enabled: Boolean(roiEnabledEl && roiEnabledEl.checked),
@@ -3214,6 +3248,7 @@
       });
       if (roiEnabledEl) roiEnabledEl.addEventListener('change', syncBadges);
       if (headlightCaptureEl) headlightCaptureEl.addEventListener('change', syncBadges);
+      if (flashCaptureModeEl) flashCaptureModeEl.addEventListener('change', syncBadges);
 
       function applyFromConfig(cfg) {
         if (!cfg || typeof cfg.detLevel === 'undefined') return;
@@ -3238,8 +3273,10 @@
             flashCaptureBtn.style.borderColor = flashCaptureEnabled ? '#fbbf24' : 'rgba(148,163,184,0.45)';
           }
         }
+        if (flashCaptureModeEl && cfg.flashCaptureMode !== undefined) flashCaptureModeEl.value = cfg.flashCaptureMode;
         if (flashCaptureIsoEl && cfg.flashCaptureIso !== undefined) flashCaptureIsoEl.value = String(cfg.flashCaptureIso);
         if (flashCaptureShutterEl && cfg.flashCaptureShutterNs !== undefined) flashCaptureShutterEl.value = String(cfg.flashCaptureShutterNs);
+        if (skipFastShutterEl && cfg.skipCaptureIfFastShutter !== undefined) skipFastShutterEl.checked = Boolean(cfg.skipCaptureIfFastShutter);
         if (cfg.headlightCaptureEnabled !== undefined) {
           headlightCaptureEnabled = Boolean(cfg.headlightCaptureEnabled);
           if (headlightCaptureEl) headlightCaptureEl.checked = headlightCaptureEnabled;
@@ -3251,8 +3288,6 @@
         if (headlightDiffEl && cfg.headlightDiffThreshold !== undefined) headlightDiffEl.value = String(cfg.headlightDiffThreshold);
         if (headlightMinEl && cfg.headlightMinRatio !== undefined) headlightMinEl.value = Number(cfg.headlightMinRatio).toFixed(2);
         if (headlightMaxEl && cfg.headlightMaxRatio !== undefined) headlightMaxEl.value = Number(cfg.headlightMaxRatio).toFixed(2);
-        if (aeRegionEl && cfg.aeRegionEnabled !== undefined) aeRegionEl.checked = Boolean(cfg.aeRegionEnabled);
-        if (antiOverexpEl && cfg.antiOverexposureEnabled !== undefined) antiOverexpEl.checked = Boolean(cfg.antiOverexposureEnabled);
         if (roiEnabledEl && cfg.roiEnabled !== undefined) roiEnabledEl.checked = Boolean(cfg.roiEnabled);
         if (roiXEl && cfg.roiX !== undefined) roiXEl.value = Number(cfg.roiX).toFixed(2);
         if (roiYEl && cfg.roiY !== undefined) roiYEl.value = Number(cfg.roiY).toFixed(2);
@@ -3325,8 +3360,10 @@
             motionCropEnabled: motionCropEl ? String(motionCropEl.checked) : 'false',
             motionTorchEnabled: motionTorchEl ? String(motionTorchEl.checked) : 'false',
             flashCaptureEnabled: String(flashCaptureEnabled),
+            flashCaptureMode: flashCaptureModeEl ? flashCaptureModeEl.value : 'manual',
             flashCaptureIso: flashCaptureIsoEl ? flashCaptureIsoEl.value : '200',
             flashCaptureShutterNs: flashCaptureShutterEl ? flashCaptureShutterEl.value : '2000000',
+            skipCaptureIfFastShutter: skipFastShutterEl ? String(skipFastShutterEl.checked) : 'true',
             roiEnabled: roiEnabledEl ? String(roiEnabledEl.checked) : 'false',
             roiX: roiXEl ? roiXEl.value : '0.00',
             roiY: roiYEl ? roiYEl.value : '0.25',
@@ -3344,9 +3381,7 @@
             headlightCaptureEnabled: headlightCaptureEl ? String(headlightCaptureEl.checked) : String(headlightCaptureEnabled),
             headlightDiffThreshold: headlightDiffEl ? headlightDiffEl.value : '55',
             headlightMinRatio: headlightMinEl ? headlightMinEl.value : '0.02',
-            headlightMaxRatio: headlightMaxEl ? headlightMaxEl.value : '0.55',
-            aeRegionEnabled: aeRegionEl ? String(aeRegionEl.checked) : 'false',
-            antiOverexposureEnabled: antiOverexpEl ? String(antiOverexpEl.checked) : 'false'
+            headlightMaxRatio: headlightMaxEl ? headlightMaxEl.value : '0.55'
           }).toString();
           if (statusEl) statusEl.innerText = '正在保存并重载...';
           fetch(`/api/alpr/config?${qs}`, { method: 'POST', credentials: 'include', cache: 'no-store' })
@@ -3427,8 +3462,36 @@
       const pbOverlay = getElById('playbackOverlayCanvas');
       const playPauseBtn = getElById('pbPlayPauseBtn');
       const back10Btn = getElById('pbBack10Btn');
+      const back5Btn = getElById('pbBack5Btn');
+      const fwd5Btn = getElById('pbFwd5Btn');
       const fwd10Btn = getElById('pbFwd10Btn');
+      const pbFullscreenBtn = getElById('pbFullscreenBtn');
       const speedSelect = getElById('pbSpeedSelect');
+      const lightboxEl = getElById('imageLightbox');
+      const lightboxImg = getElById('imageLightboxImg');
+      const lightboxCaption = getElById('imageLightboxCaption');
+      const lightboxClose = getElById('imageLightboxClose');
+
+      function openImageLightbox(src, caption) {
+        if (!lightboxEl || !lightboxImg || !src) return;
+        lightboxImg.src = src;
+        if (lightboxCaption) lightboxCaption.textContent = caption || '';
+        lightboxEl.style.display = 'flex';
+      }
+      function closeImageLightbox() {
+        if (!lightboxEl || !lightboxImg) return;
+        lightboxEl.style.display = 'none';
+        lightboxImg.src = '';
+      }
+      if (lightboxClose) lightboxClose.addEventListener('click', closeImageLightbox);
+      if (lightboxEl) {
+        lightboxEl.addEventListener('click', (e) => {
+          if (e.target === lightboxEl) closeImageLightbox();
+        });
+      }
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && lightboxEl && lightboxEl.style.display === 'flex') closeImageLightbox();
+      });
       const clockTextEl = getElById('playbackClockText');
       const tlZoomAll = getElById('tlZoomAll');
       const tlZoom1h = getElById('tlZoom1h');
@@ -3560,9 +3623,39 @@
           if (currentWallMs > 0) seekToWallTime(currentWallMs - 10_000);
         });
       }
+      if (back5Btn) {
+        back5Btn.addEventListener('click', () => {
+          if (currentWallMs > 0) seekToWallTime(currentWallMs - 5_000);
+        });
+      }
+      if (fwd5Btn) {
+        fwd5Btn.addEventListener('click', () => {
+          if (currentWallMs > 0) seekToWallTime(currentWallMs + 5_000);
+        });
+      }
       if (fwd10Btn) {
         fwd10Btn.addEventListener('click', () => {
           if (currentWallMs > 0) seekToWallTime(currentWallMs + 10_000);
+        });
+      }
+      function togglePlaybackFullscreen() {
+        if (!videoWrap) return;
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          if (videoWrap.requestFullscreen) videoWrap.requestFullscreen();
+          else if (videoWrap.webkitRequestFullscreen) videoWrap.webkitRequestFullscreen();
+        } else {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        }
+      }
+      if (pbFullscreenBtn) pbFullscreenBtn.addEventListener('click', togglePlaybackFullscreen);
+      if (videoWrap) videoWrap.addEventListener('dblclick', togglePlaybackFullscreen);
+      document.addEventListener('fullscreenchange', () => {
+        if (playbackView.style.display !== 'none') renderPlaybackCardAndOverlay(currentWallMs);
+      });
+      if (fullSnapImg) {
+        fullSnapImg.addEventListener('click', () => {
+          if (fullSnapImg.src) openImageLightbox(fullSnapImg.src, snapTitleEl ? snapTitleEl.textContent : '');
         });
       }
       if (speedSelect) {
@@ -4053,8 +4146,14 @@
           const img = document.createElement('img');
           img.className = 'event-thumb';
           img.alt = ev.plateCode || 'plate';
+          img.style.cursor = 'zoom-in';
+          img.title = '点击查看大图';
           if (ev.plateImg) {
             img.src = `/api/events/image?file=${encodeURIComponent(ev.plateImg)}`;
+            img.addEventListener('click', (e) => {
+              e.stopPropagation();
+              openImageLightbox(img.src, `${ev.plateCode || '--'} · ${formatTime(ev.eventTimeMs)}`);
+            });
           }
 
           const info = document.createElement('div');
