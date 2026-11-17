@@ -84,6 +84,8 @@ class CameraXCapture(
         private set
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var torchEnabled = false
+    @Volatile private var latestExposureTimeNs = 0L
+    override val currentExposureTimeNs: Long get() = latestExposureTimeNs
     private var manualIso: Int? = null
     private var manualExposureTimeNs: Long? = null
     private var aeRegionParams: FloatArray? = null
@@ -175,6 +177,17 @@ class CameraXCapture(
                     analysisInterop.setCaptureRequestOption(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, it)
                     Log.i(TAG, "AE fps range $it (auto within range)")
                 }
+                analysisInterop.setSessionCaptureCallback(object : android.hardware.camera2.CameraCaptureSession.CaptureCallback() {
+                    override fun onCaptureCompleted(
+                        session: android.hardware.camera2.CameraCaptureSession,
+                        request: android.hardware.camera2.CaptureRequest,
+                        result: android.hardware.camera2.TotalCaptureResult
+                    ) {
+                        result.get(android.hardware.camera2.CaptureResult.SENSOR_EXPOSURE_TIME)?.let {
+                            latestExposureTimeNs = it
+                        }
+                    }
+                })
                 analysisUseCase = aBuilder.build()
                     .also { a -> a.setAnalyzer(analysisExec) { img ->
                         width = img.width; height = img.height

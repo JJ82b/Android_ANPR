@@ -68,7 +68,8 @@ class StreamingServerHelper(
     private val onLoopRecordingGet: () -> String = { "{}" },
     private val onLoopRecordingSet: (Map<String, String>) -> String = { "{}" },
     private val onPlateEventsQuery: (Map<String, String>) -> String = { """{"events":[]}""" },
-    private val onPlateEventImage: (String?) -> java.io.File? = { null }
+    private val onPlateEventImage: (String?) -> java.io.File? = { null },
+    private val onPlateEventsDelete: (Map<String, String>) -> String = { """{"deleted":0}""" }
 
 ) {
     data class Client(
@@ -825,6 +826,19 @@ class StreamingServerHelper(
                         }
                     }.toMap()
                 val json = onPlateEventsQuery(params)
+                writer.print("HTTP/1.1 200 OK\r\n")
+                writer.print("Content-Type: application/json; charset=utf-8\r\n")
+                writer.print("Cache-Control: no-cache\r\n")
+                writer.print("Connection: close\r\n\r\n")
+                writer.print(json)
+                writer.flush()
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+
+            if (path == "/api/events/delete") {
+                val params = parseQueryParams(uri)
+                val json = onPlateEventsDelete(params)
                 writer.print("HTTP/1.1 200 OK\r\n")
                 writer.print("Content-Type: application/json; charset=utf-8\r\n")
                 writer.print("Cache-Control: no-cache\r\n")

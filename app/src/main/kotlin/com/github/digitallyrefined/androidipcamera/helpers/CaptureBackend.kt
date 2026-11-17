@@ -41,5 +41,9 @@ interface CaptureBackend {
      * Supported exposure compensation index range (min..max).
      */
     fun getExposureRange(): Pair<Int, Int> = -4 to 4
+    /**
+     * Latest measured sensor exposure time in nanoseconds (0 if unknown).
+     */
+    val currentExposureTimeNs: Long get() = 0L
     fun stop()
 }

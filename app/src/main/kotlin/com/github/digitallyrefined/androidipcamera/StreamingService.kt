@@ -125,6 +125,7 @@ class StreamingService : LifecycleService() {
     @Volatile private var motionTorchLitByAuto = false
     @Volatile private var headlightCaptureModeActive = false
     @Volatile private var antiOverexposureOffset = 0
+    @Volatile private var captureModeEntered = false
     private val plateRecognizer by lazy {
         com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer(this).apply {
             onMotionTorchChanged = { turnOn -> handleAutoMotionTorch(turnOn) }
@@ -525,13 +526,14 @@ class StreamingService : LifecycleService() {
                         headlightMinRatio = params["headlightMinRatio"]?.toFloatOrNull() ?: current.headlightMinRatio,
                         headlightMaxRatio = params["headlightMaxRatio"]?.toFloatOrNull() ?: current.headlightMaxRatio,
                         aeRegionEnabled = params["aeRegionEnabled"]?.let { it == "true" || it == "1" } ?: current.aeRegionEnabled,
-                        antiOverexposureEnabled = params["antiOverexposureEnabled"]?.let { it == "true" || it == "1" } ?: current.antiOverexposureEnabled
+                        antiOverexposureEnabled = params["antiOverexposureEnabled"]?.let { it == "true" || it == "1" } ?: current.antiOverexposureEnabled,
+                        flashCaptureMode = params["flashCaptureMode"] ?: current.flashCaptureMode,
+                        skipCaptureIfFastShutter = params["skipCaptureIfFastShutter"]?.let { it == "true" || it == "1" } ?: current.skipCaptureIfFastShutter
                     )
                     val saved = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.saveConfig(this, updated)
                     plateRecognizer.reloadConfig(saved)
                     launchMain {
                         applyCurrentManualExposure()
-                        applyCurrentAeRegion(cfg = saved)
                     }
                     saved.toJson()
                 },
@@ -551,6 +553,15 @@ class StreamingService : LifecycleService() {
                 },
                 onPlateEventImage = { fileName ->
                     com.github.digitallyrefined.androidipcamera.helpers.PlateEventStore.getInstance(this).getImageFile(fileName)
+                },
+                onPlateEventsDelete = { params ->
+                    val store = com.github.digitallyrefined.androidipcamera.helpers.PlateEventStore.getInstance(this)
+                    val deleted = when {
+                        params["all"] == "true" || params["all"] == "1" -> store.clearAllEvents()
+                        params["id"]?.toLongOrNull() != null -> store.deleteEventById(params["id"]!!.toLong())
+                        else -> 0
+                    }
+                    """{"deleted":$deleted}"""
                 }
             )
             com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.videoContextProvider = {
@@ -709,7 +720,18 @@ class StreamingService : LifecycleService() {
                 return@launchMain
             }
             if (captureRunning) {
-                debouncedStartCamera()
+                val h264NeedsSurfaceBind = h264StreamingEncoder?.hasClients() == true &&
+                    h264StreamingEncoder?.h264HardwareEncoder == null &&
+                    supportsSurfaceEncoder()
+                if (h264NeedsSurfaceBind) {
+                    debouncedStartCamera()
+                } else {
+                    // 相机与编码器已在运行，取消待执行的空闲卸载并直接请求关键帧，避免重开相机导致画面闪烁与重新对焦
+                    pendingStartJob?.cancel()
+                    pendingStartJob = null
+                    h264StreamingEncoder?.h264HardwareEncoder?.requestKeyFrame()
+                    updateSubStream()
+                }
             } else {
                 startCameraIfNeeded()
             }
@@ -736,16 +758,14 @@ class StreamingService : LifecycleService() {
                     // bypass so the reconfiguration actually happens.
                     pendingStartJob?.cancel()
                     pendingStartJob = lifecycleScope.launch(Dispatchers.Main) {
-                        kotlinx.coroutines.delay(300)
+                        kotlinx.coroutines.delay(5000)
                         if (!captureRunning) return@launch   // camera stopped meanwhile
                         if (encoders.any { it.hasClients() } || currentSurfaceProvider != null || motionEnabled()) return@launch
                         startCamera(force = true)
                     }
-                } else {
-                    debouncedStartCamera()
                 }
             } else if (captureRunning) {
-                debouncedStartCamera()
+                updateSubStream()
             }
         }
     }
@@ -1366,15 +1386,84 @@ class StreamingService : LifecycleService() {
         focus?.toFloatOrNull()?.let { b.setManualFocus(it) }
 
         applyCurrentManualExposure(b)
-        applyCurrentAeRegion(b)
+    }
+
+    private fun applyCurrentManualExposure(
+        b: CaptureBackend? = backend,
+        torchLitOverride: Boolean? = null
+    ) {
+        val target = b ?: return
+        val p = PreferenceManager.getDefaultSharedPreferences(this)
+        val id = camId()
+        val phys = id?.substringAfter(':', id)
+        val iso = when {
+            id != null && p.contains("iso_$id") -> p.getString("iso_$id", "0")?.toIntOrNull()
+            phys != null && p.contains("iso_$phys") -> p.getString("iso_$phys", "0")?.toIntOrNull()
+            else -> 0
+        } ?: 0
+        val shutterNs = when {
+            id != null && p.contains("shutter_ns_$id") -> p.getString("shutter_ns_$id", "0")?.toLongOrNull()
+            phys != null && p.contains("shutter_ns_$phys") -> p.getString("shutter_ns_$phys", "0")?.toLongOrNull()
+            else -> 0L
+        } ?: 0L
+
+        val torchLit = torchLitOverride
+            ?: (target.getTorch() || motionTorchLitByAuto || deviceTorchOn || p.getString(PREF_CAMERA_TORCH, "off") == "on")
+        val cfg = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this)
+        val wantCapture = (torchLit && cfg.flashCaptureEnabled) || (headlightCaptureModeActive && cfg.headlightCaptureEnabled)
+        val fastShutterSkip = cfg.skipCaptureIfFastShutter && wantCapture && (
+            shutterNs in 1L..4_000_000L ||
+                (!captureModeEntered && target.currentExposureTimeNs in 1L..4_000_000L)
+            )
+        val activeCapture = wantCapture && !fastShutterSkip
+        captureModeEntered = activeCapture
+
+        if (activeCapture) {
+            when (cfg.flashCaptureMode) {
+                "ae_region" -> {
+                    target.setManualExposure(iso, shutterNs)
+                    applyCurrentAeRegion(target, cfg, forceEnable = true)
+                    plateRecognizer.captureModeAntiOverexposureActive = false
+                }
+                "anti_overexposure" -> {
+                    target.setManualExposure(iso, shutterNs)
+                    applyCurrentAeRegion(target, cfg, forceEnable = false)
+                    plateRecognizer.captureModeAntiOverexposureActive = true
+                }
+                "ae_region_peak" -> {
+                    target.setManualExposure(iso, shutterNs)
+                    applyCurrentAeRegion(target, cfg, forceEnable = true)
+                    plateRecognizer.captureModeAntiOverexposureActive = true
+                }
+                else -> {
+                    target.setManualExposure(cfg.flashCaptureIso, cfg.flashCaptureShutterNs)
+                    applyCurrentAeRegion(target, cfg, forceEnable = false)
+                    plateRecognizer.captureModeAntiOverexposureActive = false
+                }
+            }
+            return
+        }
+
+        if (fastShutterSkip) {
+            Log.i(TAG, "当前快门已达 1/250s 以上 (manual=${shutterNs}ns, sensor=${target.currentExposureTimeNs}ns)，跳过进入抓拍模式")
+        }
+        target.setManualExposure(iso, shutterNs)
+        applyCurrentAeRegion(target, cfg, forceEnable = false)
+        if (plateRecognizer.captureModeAntiOverexposureActive) {
+            plateRecognizer.captureModeAntiOverexposureActive = false
+            if (!cfg.antiOverexposureEnabled) {
+                handleAntiOverexposureStep(0)
+            }
+        }
     }
 
     private fun applyCurrentAeRegion(
         b: CaptureBackend? = backend,
-        cfg: com.github.digitallyrefined.androidipcamera.helpers.AlprConfig = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this)
+        cfg: com.github.digitallyrefined.androidipcamera.helpers.AlprConfig = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this),
+        forceEnable: Boolean = false
     ) {
         val target = b ?: return
-        if (!cfg.aeRegionEnabled) {
+        if (!cfg.aeRegionEnabled && !forceEnable) {
             target.setAeRegion(false, 0f, 0f, 1f, 1f, 0)
             return
         }
@@ -1413,38 +1502,6 @@ class StreamingService : LifecycleService() {
                 target.setExposure((baseEv + antiOverexposureOffset).coerceIn(lo, hi))
             }
         }
-    }
-
-    private fun applyCurrentManualExposure(
-        b: CaptureBackend? = backend,
-        torchLitOverride: Boolean? = null
-    ) {
-        val target = b ?: return
-        val p = PreferenceManager.getDefaultSharedPreferences(this)
-        val torchLit = torchLitOverride
-            ?: (target.getTorch() || motionTorchLitByAuto || deviceTorchOn || p.getString(PREF_CAMERA_TORCH, "off") == "on")
-        val cfg = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this)
-        if ((torchLit && cfg.flashCaptureEnabled) || (headlightCaptureModeActive && cfg.headlightCaptureEnabled)) {
-            target.setManualExposure(cfg.flashCaptureIso, cfg.flashCaptureShutterNs)
-            return
-        }
-        val id = camId()
-        if (id == null) {
-            target.setManualExposure(0, 0L)
-            return
-        }
-        val phys = id.substringAfter(':', id)
-        val iso = when {
-            p.contains("iso_$id") -> p.getString("iso_$id", "0")?.toIntOrNull()
-            p.contains("iso_$phys") -> p.getString("iso_$phys", "0")?.toIntOrNull()
-            else -> 0
-        } ?: 0
-        val shutterNs = when {
-            p.contains("shutter_ns_$id") -> p.getString("shutter_ns_$id", "0")?.toLongOrNull()
-            p.contains("shutter_ns_$phys") -> p.getString("shutter_ns_$phys", "0")?.toLongOrNull()
-            else -> 0L
-        } ?: 0L
-        target.setManualExposure(iso, shutterNs)
     }
 
     /** Rear camera id that owns the flash unit (usually the main lens). Auxiliary rear lenses on

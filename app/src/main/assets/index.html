@@ -539,6 +539,7 @@
       <div style="display:flex;gap:6px;">
         <button id='liveTabBtn' class='btn active' data-i18n="tabLive">📹 实时监控</button>
         <button id='playbackTabBtn' class='btn' data-i18n="tabPlayback">📼 过车回放</button>
+        <button id='manageTabBtn' class='btn' data-i18n="tabManage">📁 记录管理</button>
       </div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
@@ -963,14 +964,6 @@
       </div>
     </div>
 
-    <div id="imageLightbox" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(5,7,11,0.92);align-items:center;justify-content:center;flex-direction:column;padding:16px;">
-      <div style="width:100%;max-width:1100px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:#e2e8f0;">
-        <span id="imageLightboxCaption" style="font-size:14px;font-weight:600;"></span>
-        <button id="imageLightboxClose" type="button" class="btn" style="padding:4px 12px;font-size:13px;">✕ 关闭</button>
-      </div>
-      <img id="imageLightboxImg" alt="大图预览" style="max-width:94vw;max-height:84vh;object-fit:contain;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,0.7);">
-    </div>
-
     <div class="playback-sidebar">
       <!-- 沿用实时监控样式的回放车牌识别看板 -->
       <div style="padding:10px 12px 0 12px;">
@@ -1021,6 +1014,51 @@
     </div>
   </div>
 
+  <div id="manageView" style="display:none;flex:1;min-height:0;gap:14px;padding:14px;overflow:auto;flex-wrap:wrap;align-items:stretch;">
+    <div style="flex:1 1 420px;min-width:300px;background:#161b26;border:1px solid #283244;border-radius:8px;padding:12px;display:flex;flex-direction:column;min-height:420px;max-height:calc(100vh - 96px);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <div>
+          <h3 style="margin:0;font-size:15px;color:#e2e8f0;">📼 录像文件管理</h3>
+          <div id="mgrVideoStats" style="font-size:12px;color:#94a3b8;margin-top:2px;">加载中...</div>
+        </div>
+        <button id="mgrVideoRefreshBtn" type="button" class="btn" style="margin:0;padding:4px 10px;">↻ 刷新</button>
+      </div>
+      <div id="mgrVideoList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
+    <div style="flex:1.4 1 520px;min-width:320px;background:#161b26;border:1px solid #283244;border-radius:8px;padding:12px;display:flex;flex-direction:column;min-height:420px;max-height:calc(100vh - 96px);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <div>
+          <h3 style="margin:0;font-size:15px;color:#e2e8f0;">🚗 车牌过车记录管理</h3>
+          <div id="mgrEventStats" style="font-size:12px;color:#94a3b8;margin-top:2px;">加载中...</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button id="mgrExportCsvBtn" type="button" class="btn btn-action" style="margin:0;padding:4px 10px;width:auto;">⬇ 导出 CSV</button>
+          <button id="mgrClearEventsBtn" type="button" class="btn" style="margin:0;padding:4px 10px;background:#7f1d1d;border-color:#b91c1c;color:#fecaca;">🗑 清空记录</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+        <input id="mgrEventSearch" type="text" placeholder="搜索车牌号..." style="flex:1;min-width:140px;margin:0;padding:6px 10px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;">
+        <select id="mgrEventType" class="camera-select" style="width:auto;margin:0;padding:6px 8px;">
+          <option value="-1">全部类型</option>
+          <option value="0">蓝牌</option>
+          <option value="3">绿牌新能源</option>
+          <option value="1">黄牌</option>
+        </select>
+        <button id="mgrEventRefreshBtn" type="button" class="btn" style="margin:0;padding:6px 12px;">查询</button>
+      </div>
+      <div id="mgrEventList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+  </div>
+
+  <div id="imageLightbox" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(5,7,11,0.92);align-items:center;justify-content:center;flex-direction:column;padding:16px;">
+    <div style="width:100%;max-width:1100px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;color:#e2e8f0;">
+      <span id="imageLightboxCaption" style="font-size:14px;font-weight:600;"></span>
+      <button id="imageLightboxClose" type="button" class="btn" style="padding:4px 12px;font-size:13px;">✕ 关闭</button>
+    </div>
+    <img id="imageLightboxImg" alt="大图预览" style="max-width:94vw;max-height:84vh;object-fit:contain;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,0.7);">
+  </div>
+
   <script>
     const getElById = (id) => document.getElementById(id);
 
@@ -1030,6 +1068,7 @@
         appTitle: 'Android IP 摄像头',
         tabLive: '📹 实时监控',
         tabPlayback: '📼 过车回放',
+        tabManage: '📁 记录管理',
         btnFit: '适应屏幕',
         btnOriginal: '原始大小',
         btnFullscreen: '⛶ 全屏',
@@ -1176,6 +1215,7 @@
         appTitle: 'Android IP Camera',
         tabLive: '📹 Live View',
         tabPlayback: '📼 Playback',
+        tabManage: '📁 Manage',
         btnFit: 'Fit Screen',
         btnOriginal: 'Original Size',
         btnFullscreen: '⛶ Fullscreen',
@@ -3453,9 +3493,21 @@
     (function initPlaybackView() {
       const liveTabBtn = getElById('liveTabBtn');
       const playbackTabBtn = getElById('playbackTabBtn');
+      const manageTabBtn = getElById('manageTabBtn');
       const liveMainView = getElById('liveMainView');
       const liveHeaderTools = getElById('liveHeaderTools');
       const playbackView = getElById('playbackView');
+      const manageView = getElById('manageView');
+      const mgrVideoStats = getElById('mgrVideoStats');
+      const mgrVideoList = getElById('mgrVideoList');
+      const mgrVideoRefreshBtn = getElById('mgrVideoRefreshBtn');
+      const mgrEventStats = getElById('mgrEventStats');
+      const mgrEventList = getElById('mgrEventList');
+      const mgrEventSearch = getElById('mgrEventSearch');
+      const mgrEventType = getElById('mgrEventType');
+      const mgrEventRefreshBtn = getElById('mgrEventRefreshBtn');
+      const mgrExportCsvBtn = getElById('mgrExportCsvBtn');
+      const mgrClearEventsBtn = getElById('mgrClearEventsBtn');
       const videoWrap = getElById('playbackVideoWrap');
       const videoA = getElById('playbackVideoA');
       const videoB = getElById('playbackVideoB');
@@ -3564,17 +3616,246 @@
         return Math.max(0, (fallbackLastModMs || Date.now()) - 300_000);
       }
 
+      function formatBytes(bytes) {
+        if (!bytes || bytes <= 0) return '0 B';
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+      }
+
+      function loadManageVideos() {
+        if (!mgrVideoList) return;
+        mgrVideoList.innerHTML = '<div style="color:#94a3b8;padding:16px;text-align:center;">正在加载录像...</div>';
+        fetch('/files.json', { credentials: 'include', cache: 'no-store' })
+          .then(r => r.json())
+          .then(data => {
+            const files = (data.files || []).filter(f => /\.(mp4|mkv|avi)$/i.test(f.name || ''));
+            const totalBytes = files.reduce((acc, f) => acc + (f.size || 0), 0);
+            if (mgrVideoStats) mgrVideoStats.textContent = `共 ${files.length} 个录像文件 · 总大小 ${formatBytes(totalBytes)}`;
+            if (!files.length) {
+              mgrVideoList.innerHTML = '<div style="color:#64748b;padding:24px;text-align:center;">暂无录像文件</div>';
+              return;
+            }
+            mgrVideoList.innerHTML = '';
+            files.forEach(f => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;flex-wrap:wrap;';
+              const left = document.createElement('div');
+              left.style.cssText = 'min-width:0;flex:1;';
+              const startMs = parseStartMsFromName(f.name, f.lastModified);
+              left.innerHTML = `<div style="font-size:13px;font-weight:600;color:#e2e8f0;word-break:break-all;">${f.name}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px;">${formatTime(startMs)} · ${formatBytes(f.size || 0)}</div>`;
+              const actions = document.createElement('div');
+              actions.style.cssText = 'display:flex;gap:6px;align-items:center;';
+
+              const playBtn = document.createElement('button');
+              playBtn.type = 'button';
+              playBtn.className = 'btn btn-action';
+              playBtn.style.cssText = 'margin:0;padding:3px 9px;font-size:11px;width:auto;';
+              playBtn.textContent = '▶ 回放';
+              playBtn.addEventListener('click', () => {
+                switchTab('playback');
+                loadSegmentsAndTimeline().then(() => {
+                  const idx = segments.findIndex(s => s.name === f.name);
+                  if (idx >= 0) playSegmentAt(idx, 0, `正在播放: ${f.name}`);
+                });
+              });
+
+              const dlLink = document.createElement('a');
+              dlLink.className = 'btn';
+              dlLink.style.cssText = 'margin:0;padding:3px 9px;font-size:11px;text-decoration:none;';
+              dlLink.href = `/files/${encodeURIComponent(f.name)}`;
+              dlLink.target = '_blank';
+              dlLink.download = f.name;
+              dlLink.textContent = '⬇ 下载';
+
+              const delBtn = document.createElement('button');
+              delBtn.type = 'button';
+              delBtn.className = 'btn';
+              delBtn.style.cssText = 'margin:0;padding:3px 9px;font-size:11px;background:#7f1d1d;border-color:#b91c1c;color:#fecaca;';
+              delBtn.textContent = '🗑 删除';
+              delBtn.addEventListener('click', () => {
+                if (!confirm(`确定删除录像文件 ${f.name}（同时清理关联过车记录）？`)) return;
+                fetch(`/files/${encodeURIComponent(f.name)}`, { method: 'DELETE', credentials: 'include' })
+                  .then(() => { loadManageVideos(); loadManageEvents(); })
+                  .catch(() => alert('删除失败'));
+              });
+
+              actions.appendChild(playBtn);
+              actions.appendChild(dlLink);
+              actions.appendChild(delBtn);
+              row.appendChild(left);
+              row.appendChild(actions);
+              mgrVideoList.appendChild(row);
+            });
+          })
+          .catch(() => {
+            mgrVideoList.innerHTML = '<div style="color:#f87171;padding:24px;text-align:center;">加载录像失败</div>';
+          });
+      }
+
+      let lastMgrEvents = [];
+      function loadManageEvents() {
+        if (!mgrEventList) return;
+        const qs = new URLSearchParams({
+          q: mgrEventSearch ? mgrEventSearch.value.trim() : '',
+          type: mgrEventType ? mgrEventType.value : '-1',
+          limit: '150',
+          offset: '0'
+        }).toString();
+        mgrEventList.innerHTML = '<div style="color:#94a3b8;padding:16px;text-align:center;">正在加载车牌记录...</div>';
+        fetch(`/api/events?${qs}`, { credentials: 'include', cache: 'no-store' })
+          .then(r => r.json())
+          .then(data => {
+            const events = data.events || [];
+            lastMgrEvents = events;
+            if (mgrEventStats) mgrEventStats.textContent = `当前显示 ${events.length} 条记录`;
+            if (!events.length) {
+              mgrEventList.innerHTML = '<div style="color:#64748b;padding:24px;text-align:center;">暂无匹配的过车记录</div>';
+              return;
+            }
+            mgrEventList.innerHTML = '';
+            events.forEach(ev => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;flex-wrap:wrap;';
+
+              const thumb = document.createElement('img');
+              thumb.className = 'event-thumb';
+              thumb.style.cursor = 'zoom-in';
+              thumb.alt = ev.plateCode || 'plate';
+              if (ev.plateImg) {
+                thumb.src = `/api/events/image?file=${encodeURIComponent(ev.plateImg)}`;
+                thumb.addEventListener('click', () => openImageLightbox(thumb.src, `${ev.plateCode || '--'} · ${formatTime(ev.eventTimeMs)}`));
+              }
+
+              const info = document.createElement('div');
+              info.style.cssText = 'flex:1;min-width:160px;';
+              const st = PLATE_TYPE_STYLES[ev.plateType] || DEFAULT_PLATE_STYLE;
+              info.innerHTML = `
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                  <span style="font-size:15px;font-weight:700;color:#f8fafc;">${ev.plateCode || '--'}</span>
+                  <span class="event-badge" style="background:${st.bg};color:${st.text};border:1px solid ${st.border};">${plateTypeLabel(ev.plateType)}</span>
+                  <span style="font-size:11px;color:#38bdf8;">${Math.round((ev.confidence || 0) * 100)}%</span>
+                </div>
+                <div style="font-size:11px;color:#94a3b8;margin-top:3px;">${formatTime(ev.eventTimeMs)}${ev.videoFile ? ` · 📹 ${ev.videoFile}` : ''}</div>
+              `;
+
+              const actions = document.createElement('div');
+              actions.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;';
+
+              if (ev.snapImg) {
+                const snapBtn = document.createElement('button');
+                snapBtn.type = 'button';
+                snapBtn.className = 'btn';
+                snapBtn.style.cssText = 'margin:0;padding:3px 8px;font-size:11px;';
+                snapBtn.textContent = '🖼 全景';
+                snapBtn.addEventListener('click', () => {
+                  openImageLightbox(`/api/events/image?file=${encodeURIComponent(ev.snapImg)}`, `${ev.plateCode || '--'} · ${formatTime(ev.eventTimeMs)}`);
+                });
+                actions.appendChild(snapBtn);
+              }
+
+              if (ev.videoFile) {
+                const pbBtn = document.createElement('button');
+                pbBtn.type = 'button';
+                pbBtn.className = 'btn btn-action';
+                pbBtn.style.cssText = 'margin:0;padding:3px 8px;font-size:11px;width:auto;';
+                pbBtn.textContent = '▶ 回放';
+                pbBtn.addEventListener('click', () => {
+                  switchTab('playback');
+                  loadSegmentsAndTimeline().then(() => {
+                    const idx = segments.findIndex(s => s.name === ev.videoFile);
+                    const sec = Math.max(0, Math.floor((ev.videoOffsetMs || 0) / 1000) - 2);
+                    if (idx >= 0) playSegmentAt(idx, sec, t('seekEvent', { plate: ev.plateCode || '--', time: formatTime(ev.eventTimeMs) }));
+                  });
+                });
+                actions.appendChild(pbBtn);
+              }
+
+              const delBtn = document.createElement('button');
+              delBtn.type = 'button';
+              delBtn.className = 'btn';
+              delBtn.style.cssText = 'margin:0;padding:3px 8px;font-size:11px;background:#7f1d1d;border-color:#b91c1c;color:#fecaca;';
+              delBtn.textContent = '🗑 删除';
+              delBtn.addEventListener('click', () => {
+                fetch(`/api/events/delete?id=${encodeURIComponent(ev.id)}`, { method: 'POST', credentials: 'include' })
+                  .then(() => loadManageEvents())
+                  .catch(() => alert('删除失败'));
+              });
+              actions.appendChild(delBtn);
+
+              row.appendChild(thumb);
+              row.appendChild(info);
+              row.appendChild(actions);
+              mgrEventList.appendChild(row);
+            });
+          })
+          .catch(() => {
+            mgrEventList.innerHTML = '<div style="color:#f87171;padding:24px;text-align:center;">加载过车记录失败</div>';
+          });
+      }
+
+      if (mgrVideoRefreshBtn) mgrVideoRefreshBtn.addEventListener('click', loadManageVideos);
+      if (mgrEventRefreshBtn) mgrEventRefreshBtn.addEventListener('click', loadManageEvents);
+      if (mgrEventSearch) mgrEventSearch.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadManageEvents(); });
+      if (mgrEventType) mgrEventType.addEventListener('change', loadManageEvents);
+      if (mgrExportCsvBtn) {
+        mgrExportCsvBtn.addEventListener('click', () => {
+          if (!lastMgrEvents.length) return alert('暂无可导出的记录');
+          const rows = [['ID', '车牌号', '类型', '置信度', '过车时间', '关联录像', '偏移(ms)']];
+          lastMgrEvents.forEach(ev => {
+            rows.push([
+              ev.id,
+              `"${String(ev.plateCode || '').replace(/"/g, '""')}"`,
+              `"${plateTypeLabel(ev.plateType)}"`,
+              (ev.confidence || 0).toFixed(3),
+              `"${formatTime(ev.eventTimeMs)}"`,
+              `"${String(ev.videoFile || '')}"`,
+              ev.videoOffsetMs || 0
+            ]);
+          });
+          const blob = new Blob(['\uFEFF' + rows.map(r => r.join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `plate_events_${new Date().toISOString().slice(0, 10)}.csv`;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        });
+      }
+      if (mgrClearEventsBtn) {
+        mgrClearEventsBtn.addEventListener('click', () => {
+          if (!confirm('确定要清空所有车牌过车记录及抓拍图片吗？此操作不可恢复！')) return;
+          fetch('/api/events/delete?all=true', { method: 'POST', credentials: 'include' })
+            .then(() => loadManageEvents())
+            .catch(() => alert('清空失败'));
+        });
+      }
+
       function switchTab(mode) {
         const isPlayback = mode === 'playback';
-        liveTabBtn.classList.toggle('active', !isPlayback);
+        const isManage = mode === 'manage';
+        const isLive = !isPlayback && !isManage;
+        liveTabBtn.classList.toggle('active', isLive);
         playbackTabBtn.classList.toggle('active', isPlayback);
-        if (liveMainView) liveMainView.style.display = isPlayback ? 'none' : 'flex';
-        if (liveHeaderTools) liveHeaderTools.style.display = isPlayback ? 'none' : 'flex';
+        if (manageTabBtn) manageTabBtn.classList.toggle('active', isManage);
+        if (liveMainView) liveMainView.style.display = isLive ? 'flex' : 'none';
+        if (liveHeaderTools) liveHeaderTools.style.display = isLive ? 'flex' : 'none';
         playbackView.style.display = isPlayback ? 'flex' : 'none';
+        if (manageView) manageView.style.display = isManage ? 'flex' : 'none';
         if (isPlayback) {
           pauseLivePreview();
           loadSegmentsAndTimeline();
           loadEvents();
+        } else if (isManage) {
+          pauseLivePreview();
+          [videoA, videoB].forEach(v => {
+            try { v.pause(); v.removeAttribute('src'); v.load(); } catch (_) {}
+          });
+          currentSegIdx = -1;
+          preloadedSegIdx = -1;
+          updatePlayPauseBtn();
+          loadManageVideos();
+          loadManageEvents();
         } else {
           [videoA, videoB].forEach(v => {
             try {
@@ -3593,6 +3874,7 @@
 
       liveTabBtn.addEventListener('click', () => switchTab('live'));
       playbackTabBtn.addEventListener('click', () => switchTab('playback'));
+      if (manageTabBtn) manageTabBtn.addEventListener('click', () => switchTab('manage'));
 
       if (snapCloseBtn && fullSnapWrap) {
         snapCloseBtn.addEventListener('click', () => { fullSnapWrap.style.display = 'none'; });
@@ -3677,7 +3959,7 @@
       if (tlZoom15m) tlZoom15m.addEventListener('click', () => setZoom(900_000, tlZoom15m));
 
       function loadSegmentsAndTimeline() {
-        Promise.all([
+        return Promise.all([
           fetch('/files.json', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => ({ files: [] })),
           fetch('/api/events?limit=200&offset=0', { credentials: 'include', cache: 'no-store' }).then(r => r.json()).catch(() => ({ events: [] }))
         ]).then(([filesData, eventsData]) => {

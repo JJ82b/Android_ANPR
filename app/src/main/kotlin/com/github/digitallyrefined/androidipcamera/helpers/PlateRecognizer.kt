@@ -53,11 +53,13 @@ data class AlprConfig(
     val headlightMinRatio: Float = 0.02f,
     val headlightMaxRatio: Float = 0.55f,
     val aeRegionEnabled: Boolean = false,
-    val antiOverexposureEnabled: Boolean = false
+    val antiOverexposureEnabled: Boolean = false,
+    val flashCaptureMode: String = "manual",
+    val skipCaptureIfFastShutter: Boolean = true
 ) {
     fun toJson(): String = String.format(
         Locale.US,
-        """{"detLevel":%d,"maxNum":%d,"boxConfThreshold":%.2f,"recConfidenceThreshold":%.2f,"threads":%d,"intervalMs":%d,"useGpu":%b,"gpuAvailable":%b,"motionGateEnabled":%b,"roiEnabled":%b,"roiX":%.2f,"roiY":%.2f,"roiW":%.2f,"roiH":%.2f,"motionCropEnabled":%b,"motionTorchEnabled":%b,"flashCaptureEnabled":%b,"flashCaptureIso":%d,"flashCaptureShutterNs":%d,"motionDiffThreshold":%.0f,"motionAreaRatio":%.2f,"motionBgAlpha":%.2f,"motionCropMinCells":%d,"motionCropPadRatio":%.2f,"motionBackoffMs":%d,"motionTorchHoldMs":%d,"torchSettleMs":%d,"motionGlobalJumpRatio":%.2f,"headlightCaptureEnabled":%b,"headlightDiffThreshold":%.0f,"headlightMinRatio":%.2f,"headlightMaxRatio":%.2f,"aeRegionEnabled":%b,"antiOverexposureEnabled":%b}""",
+        """{"detLevel":%d,"maxNum":%d,"boxConfThreshold":%.2f,"recConfidenceThreshold":%.2f,"threads":%d,"intervalMs":%d,"useGpu":%b,"gpuAvailable":%b,"motionGateEnabled":%b,"roiEnabled":%b,"roiX":%.2f,"roiY":%.2f,"roiW":%.2f,"roiH":%.2f,"motionCropEnabled":%b,"motionTorchEnabled":%b,"flashCaptureEnabled":%b,"flashCaptureIso":%d,"flashCaptureShutterNs":%d,"motionDiffThreshold":%.0f,"motionAreaRatio":%.2f,"motionBgAlpha":%.2f,"motionCropMinCells":%d,"motionCropPadRatio":%.2f,"motionBackoffMs":%d,"motionTorchHoldMs":%d,"torchSettleMs":%d,"motionGlobalJumpRatio":%.2f,"headlightCaptureEnabled":%b,"headlightDiffThreshold":%.0f,"headlightMinRatio":%.2f,"headlightMaxRatio":%.2f,"aeRegionEnabled":%b,"antiOverexposureEnabled":%b,"flashCaptureMode":"%s","skipCaptureIfFastShutter":%b}""",
         detLevel,
         maxNum,
         boxConfThreshold,
@@ -91,7 +93,9 @@ data class AlprConfig(
         headlightMinRatio,
         headlightMaxRatio,
         aeRegionEnabled,
-        antiOverexposureEnabled
+        antiOverexposureEnabled,
+        flashCaptureMode,
+        skipCaptureIfFastShutter
     )
 }
 
@@ -180,6 +184,7 @@ class PlateRecognizer(context: Context) {
     @Volatile var onHeadlightCaptureChanged: ((Boolean) -> Unit)? = null
     private var lastAntiOverexpAdjustMs = 0L
     @Volatile var onAntiOverexposureStep: ((Int) -> Unit)? = null
+    @Volatile var captureModeAntiOverexposureActive: Boolean = false
 
     companion object {
         private const val PREF_DET_LEVEL = "alpr_det_level"
@@ -215,6 +220,8 @@ class PlateRecognizer(context: Context) {
         private const val PREF_HEADLIGHT_MAX_RATIO = "alpr_headlight_max_ratio"
         private const val PREF_AE_REGION = "alpr_ae_region_enabled"
         private const val PREF_ANTI_OVEREXP = "alpr_anti_overexposure_enabled"
+        private const val PREF_FLASH_CAPTURE_MODE = "alpr_flash_capture_mode"
+        private const val PREF_SKIP_FAST_SHUTTER = "alpr_skip_capture_fast_shutter"
 
         private const val DEFAULT_DET_LEVEL = HyperLPR3.DETECT_LEVEL_HIGH
         private const val DEFAULT_MAX_NUM = 3
@@ -248,6 +255,8 @@ class PlateRecognizer(context: Context) {
         private const val DEFAULT_HEADLIGHT_MAX_RATIO = 0.55f
         private const val DEFAULT_AE_REGION = false
         private const val DEFAULT_ANTI_OVEREXP = false
+        private const val DEFAULT_FLASH_CAPTURE_MODE = "manual"
+        private const val DEFAULT_SKIP_FAST_SHUTTER = true
 
         private const val LUMA_GRID_W = 32
         private const val LUMA_GRID_H = 18
@@ -329,6 +338,8 @@ class PlateRecognizer(context: Context) {
             val headlightMax = prefs.getFloat(PREF_HEADLIGHT_MAX_RATIO, DEFAULT_HEADLIGHT_MAX_RATIO).coerceIn(headlightMin + 0.05f, 0.90f)
             val aeRegion = prefs.getBoolean(PREF_AE_REGION, DEFAULT_AE_REGION)
             val antiOverexp = prefs.getBoolean(PREF_ANTI_OVEREXP, DEFAULT_ANTI_OVEREXP)
+            val captureMode = sanitizeCaptureMode(prefs.getString(PREF_FLASH_CAPTURE_MODE, DEFAULT_FLASH_CAPTURE_MODE))
+            val skipFast = prefs.getBoolean(PREF_SKIP_FAST_SHUTTER, DEFAULT_SKIP_FAST_SHUTTER)
             return AlprConfig(
                 detLevel, maxNum, boxConf, recConf, threads, intervalMs, useGpu, motionGate,
                 roiEnabled, roiX, roiY, roiW, roiH, motionCrop, motionTorch,
@@ -336,8 +347,13 @@ class PlateRecognizer(context: Context) {
                 motionDiff, motionArea, motionAlpha, motionMinCells, motionPad, motionBackoff, motionTorchHold,
                 torchSettle, globalJump,
                 headlightCap, headlightDiff, headlightMin, headlightMax,
-                aeRegion, antiOverexp
+                aeRegion, antiOverexp, captureMode, skipFast
             )
+        }
+
+        private fun sanitizeCaptureMode(mode: String?): String = when (mode) {
+            "ae_region", "anti_overexposure", "ae_region_peak" -> mode
+            else -> DEFAULT_FLASH_CAPTURE_MODE
         }
 
         fun saveConfig(context: Context, config: AlprConfig): AlprConfig {
@@ -376,7 +392,9 @@ class PlateRecognizer(context: Context) {
                 headlightMinRatio = config.headlightMinRatio.coerceIn(0.01f, 0.20f),
                 headlightMaxRatio = config.headlightMaxRatio.coerceIn(config.headlightMinRatio.coerceIn(0.01f, 0.20f) + 0.05f, 0.90f),
                 aeRegionEnabled = config.aeRegionEnabled,
-                antiOverexposureEnabled = config.antiOverexposureEnabled
+                antiOverexposureEnabled = config.antiOverexposureEnabled,
+                flashCaptureMode = sanitizeCaptureMode(config.flashCaptureMode),
+                skipCaptureIfFastShutter = config.skipCaptureIfFastShutter
             )
             PreferenceManager.getDefaultSharedPreferences(context).edit()
                 .putInt(PREF_DET_LEVEL, sanitized.detLevel)
@@ -412,6 +430,8 @@ class PlateRecognizer(context: Context) {
                 .putFloat(PREF_HEADLIGHT_MAX_RATIO, sanitized.headlightMaxRatio)
                 .putBoolean(PREF_AE_REGION, sanitized.aeRegionEnabled)
                 .putBoolean(PREF_ANTI_OVEREXP, sanitized.antiOverexposureEnabled)
+                .putString(PREF_FLASH_CAPTURE_MODE, sanitized.flashCaptureMode)
+                .putBoolean(PREF_SKIP_FAST_SHUTTER, sanitized.skipCaptureIfFastShutter)
                 .apply()
             return sanitized
         }
@@ -1083,7 +1103,7 @@ class PlateRecognizer(context: Context) {
             latestMotionDebug = null
         }
 
-        if (currentAntiOverexposureEnabled && now - lastAntiOverexpAdjustMs >= 450L) {
+        if ((currentAntiOverexposureEnabled || captureModeAntiOverexposureActive) && now - lastAntiOverexpAdjustMs >= 450L) {
             lastAntiOverexpAdjustMs = now
             val totalSamples = LUMA_GRID_W * LUMA_GRID_H
             var overCount = 0

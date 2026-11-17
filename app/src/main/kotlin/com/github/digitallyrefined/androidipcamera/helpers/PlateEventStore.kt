@@ -288,6 +288,40 @@ class PlateEventStore private constructor(context: Context) :
         return if (f.exists() && f.isFile) f else null
     }
 
+    fun deleteEventById(id: Long): Int = synchronized(dbLock) {
+        try {
+            val db = writableDatabase
+            db.query(
+                TABLE_EVENTS,
+                arrayOf("plate_img", "snap_img"),
+                "id = ?",
+                arrayOf(id.toString()),
+                null, null, null
+            ).use { c ->
+                while (c.moveToNext()) {
+                    deleteSnapFile(c.getString(0))
+                    deleteSnapFile(c.getString(1))
+                }
+            }
+            db.delete(TABLE_EVENTS, "id = ?", arrayOf(id.toString()))
+        } catch (e: Exception) {
+            Log.w(TAG, "deleteEventById($id) failed: ${e.message}")
+            0
+        }
+    }
+
+    fun clearAllEvents(): Int = synchronized(dbLock) {
+        try {
+            val db = writableDatabase
+            val deleted = db.delete(TABLE_EVENTS, null, null)
+            snapDir.listFiles()?.forEach { runCatching { it.delete() } }
+            deleted
+        } catch (e: Exception) {
+            Log.w(TAG, "clearAllEvents failed: ${e.message}")
+            0
+        }
+    }
+
     fun deleteEventsForVideo(videoFile: String) {
         if (videoFile.isBlank()) return
         synchronized(dbLock) {
