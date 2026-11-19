@@ -17,11 +17,11 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.github.digitallyrefined.androidipcamera"
+        applicationId "io.github.jj82b.android_anpr"
         minSdk 24
         targetSdk 34
-        versionCode 161
-        versionName "0.16.1"
+        versionCode 501
+        versionName "0.50.1"
 
         // https://f-droid.org/docs/Reproducible_Builds/#pngs-generated-from-vector-drawables
         vectorDrawables.generatedDensities = []
@@ -30,6 +30,7 @@ android {
     // https://f-droid.org/docs/Reproducible_Builds/#png-crushcrunch
     aaptOptions {
         cruncherEnabled false
+        noCompress 'tflite'
     }
 
     signingConfigs {
@@ -151,6 +152,9 @@ dependencies {
 
     // HyperLPR3 for license plate recognition
     implementation 'com.github.HyperInspire:hyperlpr3-android-sdk:1.0.3'
+
+    // TensorFlow Lite core for lightweight vehicle pre-detection
+    implementation 'org.tensorflow:tensorflow-lite:2.14.0'
 
     testImplementation 'junit:junit:4.13.2'
 }

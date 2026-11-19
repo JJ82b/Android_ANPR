@@ -70,6 +70,9 @@ class StreamingServerHelper(
     private val onPlateEventsQuery: (Map<String, String>) -> String = { """{"events":[]}""" },
     private val onPlateEventImage: (String?) -> java.io.File? = { null },
     private val onPlateEventsDelete: (Map<String, String>) -> String = { """{"deleted":0}""" },
+    private val onVehicleModelsList: () -> String = { """{"current":"","models":[]}""" },
+    private val onVehicleModelUpload: (String, ByteArray) -> String = { _, _ -> """{"ok":false}""" },
+    private val onVehicleModelDelete: (String) -> String = { """{"ok":false}""" },
     private val isCameraActive: () -> Boolean = { false }
 
 ) {
@@ -840,6 +843,66 @@ class StreamingServerHelper(
             if (path == "/api/events/delete") {
                 val params = parseQueryParams(uri)
                 val json = onPlateEventsDelete(params)
+                writer.print("HTTP/1.1 200 OK\r\n")
+                writer.print("Content-Type: application/json; charset=utf-8\r\n")
+                writer.print("Cache-Control: no-cache\r\n")
+                writer.print("Connection: close\r\n\r\n")
+                writer.print(json)
+                writer.flush()
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+
+            if (path == "/api/vehicle/models") {
+                val json = onVehicleModelsList()
+                writer.print("HTTP/1.1 200 OK\r\n")
+                writer.print("Content-Type: application/json; charset=utf-8\r\n")
+                writer.print("Cache-Control: no-cache\r\n")
+                writer.print("Connection: close\r\n\r\n")
+                writer.print(json)
+                writer.flush()
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+
+            if (path == "/api/vehicle/models/upload") {
+                val params = parseQueryParams(uri)
+                val modelName = params["name"] ?: "custom_model.tflite"
+                val contentLength = headers.firstOrNull { it.startsWith("content-length:", ignoreCase = true) }
+                    ?.substringAfter(':')?.trim()?.toIntOrNull() ?: 0
+                val json = if (contentLength in 1024..64_000_000) {
+                    val sb = StringBuilder(contentLength)
+                    val buf = CharArray(8192)
+                    var remaining = contentLength
+                    while (remaining > 0) {
+                        val n = reader.read(buf, 0, minOf(buf.size, remaining))
+                        if (n <= 0) break
+                        sb.append(buf, 0, n)
+                        remaining -= n
+                    }
+                    try {
+                        val bytes = android.util.Base64.decode(sb.toString().trim(), android.util.Base64.DEFAULT)
+                        onVehicleModelUpload(modelName, bytes)
+                    } catch (e: Exception) {
+                        """{"ok":false,"error":"${e.message}"}"""
+                    }
+                } else {
+                    """{"ok":false,"error":"invalid content-length"}"""
+                }
+                writer.print("HTTP/1.1 200 OK\r\n")
+                writer.print("Content-Type: application/json; charset=utf-8\r\n")
+                writer.print("Cache-Control: no-cache\r\n")
+                writer.print("Connection: close\r\n\r\n")
+                writer.print(json)
+                writer.flush()
+                try { socket.close() } catch (_: Exception) {}
+                return
+            }
+
+            if (path == "/api/vehicle/models/delete") {
+                val params = parseQueryParams(uri)
+                val modelName = params["name"] ?: ""
+                val json = onVehicleModelDelete(modelName)
                 writer.print("HTTP/1.1 200 OK\r\n")
                 writer.print("Content-Type: application/json; charset=utf-8\r\n")
                 writer.print("Cache-Control: no-cache\r\n")

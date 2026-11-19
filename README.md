@@ -1,363 +1,71 @@
-# Android IP Camera
+# Android ANPR (车牌抓拍)
 
-[![downloads](https://img.shields.io/github/downloads/DigitallyRefined/android-ip-camera/total.svg)](https://github.com/DigitallyRefined/android-ip-camera/releases)
-[![downloads](https://img.shields.io/github/downloads/DigitallyRefined/android-ip-camera/latest/total.svg)](https://github.com/DigitallyRefined/android-ip-camera/releases)
+[English](README.md) | [简体中文](README_zh.md)
 
-An Android H.264 / MJPEG IP Camera app
+**Android ANPR** (`io.github.jj82b.android_anpr` · `v0.50.1`) turns an Android phone into an all-in-one **Edge ALPR (Automatic License Plate Recognition) + H.264/MJPEG IP Camera + 24h Loop Recorder + Timeline Playback NVR**.
 
-![Desktop Browser](screenshot.webp)
+Built on top of [android-ip-camera](https://github.com/DigitallyRefined/android-ip-camera), it adds offline license plate recognition ([HyperLPR3](https://github.com/szad670401/HyperLPR)), smart motion/vehicle/glare pre-detection, automatic night-time torch & exposure capture strategies, local 24h segmented MP4 loop recording, SQLite passing-event indexing, and a rich Web management console.
 
-## 📲 Install
+---
 
-<div align="center">
-<a href="https://github.com/DigitallyRefined/android-ip-camera/releases">
-<img src="https://user-images.githubusercontent.com/69304392/148696068-0cfea65d-b18f-4685-82b5-329a330b1c0d.png"
-alt="Get it on GitHub" align="center" height="70" /></a>
+## ✨ Key Features
 
-<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.github.digitallyrefined.androidipcamera%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FDigitallyRefined%2Fandroid-ip-camera%22%2C%22author%22%3A%22DigitallyRefined%22%2C%22name%22%3A%22Android%20IP%20Camera%22%7D" target="_blank">
-<img src="https://raw.githubusercontent.com/ImranR98/Obtainium/refs/heads/main/assets/graphics/badge_obtainium.png"
-alt="Get it on Obtainium" align="center" height="70" /></a>
+### 🚗 Offline ALPR & Smart Pre-Detection
+* **Offline License Plate Recognition**: Integrated **HyperLPR3** supporting CPU multi-threading and OpenCL GPU acceleration.
+* **Motion Gate with Decoupled Backoff**: `32×18` Y-plane adaptive motion gate skips heavy AI inference on static scenes while keeping motion/glare detection running at full sampling speed.
+* **Dual Vehicle Pre-Filter Modes** (before HyperLPR3):
+  * **Heuristic Mode**: Zero-overhead aspect ratio + trajectory filtering.
+  * **TFLite Vehicle Detection**: Built-in **EfficientDet-Lite0** (default, 320×320), **EfficientDet-Lite1** (384×384), and **MobileNetV1-SSD** (300×300), plus **Web UI custom `.tflite` upload** (supports both 4-output SSD/EfficientDet and single-output Ultralytics **YOLOv8n/YOLO11n** TFLite models with NMS).
+* **Moving Glare & Red Taillight Detection**: `160×90` separable `9×9` White Top-Hat morphology + YCbCr filtering detects approaching headlights and red taillights to trigger auto-torch and night capture exposure modes.
+* **Night Capture & Anti-Overexposure**: Supports manual ISO/shutter capture preset, ROI AE region metering, and peak anti-overexposure EV stepping.
 
-<a href="https://f-droid.org/en/packages/com.github.digitallyrefined.androidipcamera/" target="_blank">
-<img src="https://f-droid.org/badge/get-it-on.png"
-alt="Get it on F-Droid" align="center" height="70" /></a>
-</div>
+### 💾 24h Loop Recording, Playback & Management
+* **24h Segmented MP4 Loop Recording**: Configurable segment duration (`1–30 min`) and storage cap (`GB`) with automatic oldest-file cleanup.
+* **SQLite Passing Event Store**: Automatically records plate number, confidence, plate type, bounding box, full snapshot JPEG, video filename, and exact timestamp offset.
+* **Calendar + 24h Timeline Playback**:
+  * Custom calendar picker with green dots marking days that have recordings.
+  * Seamless dual-video-slot timeline capped at 24 hours per day with **`24h` / `AM (00–12)` / `PM (12–24)` / `1h` / `15m`** zoom, `-5s` / `+5s` seek, fullscreen, and snapshot lightbox.
+* **Multi-Select Record Management**: Dedicated tab to inspect file sizes, search, and batch-delete recordings or passing events.
 
-## Features
+### 📡 IP Camera, Streaming & Remote Control
+* **Built-in HTTPS/HTTP Web Console**: Serves `index.html` on port `4444` (configurable) with mobile-friendly collapsible accordion controls to prevent accidental touches.
+* **Live Overlay Visualization**: Renders color-coded plate boxes, orange dashed vehicle boxes, blue motion clusters, purple dynamic crops, and yellow moving glare boxes in real time.
+* **H.264 / MJPEG / RTSP / ONVIF**: Compatible with Frigate, Home Assistant, UniFi Protect, VLC, and standard RTSP (`rtsps://[ip]:8554/live`) or MJPEG clients, including two-way Push-to-Talk audio.
 
-* 🌎 Built in server, just open the video stream in a web browser, video app or even set it as a camera for [Frigate](https://github.com/blakeblackshear/frigate) or a Home Assistant MJPEG IP Camera (using `https://[ip_address]:4444/video/mjpeg`)
-* 📴 Option to turn the display off while streaming
-* 📡 Optional RTSP stream (H.264 video + AAC audio) for mpv, Frigate/go2rtc, NVRs and other RTSP clients (using `rtsps://[ip_address]:8554/live`, plus a lighter sub stream at `/live/sub`)
-* 🛰️ Optional ONVIF camera mode with WS-Discovery, snapshots and motion events for UniFi Protect, Home Assistant and other NVRs
-* 🤳 Switch between the main or selfie camera
-* 🎛️ Remote web interface with controls for camera section, image rotation, video recording, audio/video sync, flash light toggle, resolution, zoom, exposure and contrast
-* 🖼️ Choose between different image quality settings and frame rates (to help reduce phone over heating)
-* 🛂 Username and password protection
-* 🔐 Automatic TLS certificate support to protect stream and login details via HTTPS/RTSPS
-* 🥾 Optional start on boot
+---
 
-## ⚠️ Warning
+## 🛠️ Build & Install
 
-If you are planning to run this 24/7, please make sure that your phone does not stay at 100% charge. Doing so may damage the battery and cause it to swell up, which could cause it to explode.
-
-Some models include an option to only charge to 80%, make sure this is enabled where possible.
-
-Note: running at a higher image quality may cause some phones to over heat, which can also damage the battery.
-
-## 🔋 Background Usage
-
-The app runs as a foreground service with a persistent notification, so it won't be closed while streaming. For reliable 24/7 operation:
-
-* **Unrestricted battery usage:** Open **Settings > Apps > Android IP Camera > Battery** and select **Unrestricted** (or **Don't optimise**) so Android doesn't sleep the app.
-* **Don't swipe the app away** from recent apps - force-stopping it terminates the server.
-* Don't dismiss the persistent notification or the server may get stopped.
-* The display can be safely turned off while streaming.
-* Enable **Start on Boot** in the app settings for unattended setups.
-
-## 🎥 Frigate config
-
-### Using the HTTPS streams
-
-Use the example config below to add your phone's camera to [Frigate](https://github.com/blakeblackshear/frigate) & update the URLs. The `android-cam` composite stream additionally wires up **two-way talk / push-to-talk** from the Frigate live view (it needs a `GO2RTC_ALLOW_ARBITRARY_EXEC=true` environment variable set).
-
-### Settings > Configuration Editor
-
-```yaml
-go2rtc:
-  streams:
-    android-cam-video:
-      # For example: https://test:Testing123@192.168.0.5:4444/video/h264
-      # Or use to use a .env file:
-      # https://{ANDROID_CAM_USER}:{ANDROID_CAM_PASSWORD}@[ip_address]:4444/video/h264
-      - "https://[username]:[password]@[ip_address]:4444/video/h264"
-    android-cam-audio:
-      - "https://[username]:[password]@[ip_address]:4444/audio"
-    android-cam:
-      # Video
-      - ffmpeg:android-cam-video#video=copy
-      # Phone audio
-      - ffmpeg:android-cam-audio#audio=copy
-      # Push-to-talk (from Frigate, requires GO2RTC_ALLOW_ARBITRARY_EXEC=true)
-      - "exec:/usr/lib/ffmpeg/8.0/bin/ffmpeg -hide_banner -v error -f alaw -ar 8000 -ac 1 -i - -ar 44100 -ac 1 -c:a pcm_s16le -f s16le -method POST -tls_verify 0 https://[username]:[password]@[ip_address]:4444/audio/upload#backchannel=1#audio=alaw/8000"
-
-cameras:
-  android-cam:
-    enabled: true
-    ffmpeg:
-      inputs:
-        - path: rtsp://127.0.0.1:8554/android-cam # "android-cam-video" can be used if just the video is required
-          input_args: preset-rtsp-restream
-          roles:
-            - detect
-            - record
-            - audio
-
-  webrtc:
-    candidates:
-      - 127.0.0.1:8555
-```
-
-**Note:** if your username or password contains special characters, you'll need to URL encode them via:  
-`python3 -c 'import urllib.parse; print(urllib.parse.quote(input(), safe=""))'`
-
-### Using the RTSP stream
-
-With the RTSP server enabled in the app settings, use the following config in Frigate:
-
-```yaml
-go2rtc:
-  streams:
-    android-cam:
-      - "rtsps://[username]:[password]@[ip_address]:8554/live"
-    android-cam-sub:
-      - "rtsps://[username]:[password]@[ip_address]:8554/live/sub"
-
-cameras:
-  android-cam:
-    enabled: true
-    ffmpeg:
-      inputs:
-        - path: rtsp://127.0.0.1:8554/android-cam
-          input_args: preset-rtsp-restream
-          roles:
-            - record
-            - audio
-        # Detect on the lighter sub stream (or drop this input and add `detect` above)
-        - path: rtsp://127.0.0.1:8554/android-cam-sub
-          input_args: preset-rtsp-restream
-          roles:
-            - detect
-```
-
-## Server URL Paths & Remote Control API
-
-When the streaming server is running (default port `4444`, via `https://` or `http://` depending on TLS configuration), you can access the following endpoints:
-
-### 📺 Streams and Interfaces
-
-* **Web Control Panel (`/`)**
-  * **Usage:** Open `https://[ip_address]:[port]/` (or `http://...`) in any web browser.
-  * **Description:** Serves the built-in control panel, which plays the rear or front camera video stream and allows muting/unmuting audio. Remote controls include: camera section, image rotation, flash light toggle, resolution, zoom, exposure and contrast.
-* **Motion JPEG Video Stream (`/video/mjpeg`)**
-  * **Usage:** Open directly in a web browser or configure in external home automation tools (e.g. Home Assistant MJPEG IP Camera).
-  * **Format:** `multipart/x-mixed-replace; boundary=frame`
-* **Raw H.264 Video Stream (`/video/h264`)**
-  * **Usage:** Play in media players that support raw Annex-B H.264 stream demuxing.
-    * **mpv:** Run `mpv "https://[ip_address]:[port]/video/h264"`
-* **Live Audio Stream (`/audio`)**
-  * **Usage:** Listen to the live microphone audio.
-  * **Format:** `audio/wav` chunked transfer-encoding (WAV container, 16-bit PCM mono, 44.1kHz).
-    * **mpv:** Run `mpv "https://[ip_address]:[port]/audio"`
-* **Raw Audio Stream (`/audio/raw`)**
-  * **Usage:** Listen to the raw (unprocessed) microphone source, bypassing any system audio processing (e.g. noise suppression, echo cancellation, AGC). On Android 7.0+ (API 24+) this uses the `UNPROCESSED` audio source; on older devices it falls back to the standard microphone.
-  * **Format:** `audio/wav` chunked transfer-encoding (WAV container, 16-bit PCM mono, 44.1kHz).
-    * **mpv:** Run `mpv "https://[ip_address]:[port]/audio/raw"`
-* **Two-Way Audio Upload (`/audio/upload`, POST)**
-  * **Usage:** Send raw audio to the phone, whose speaker plays it live. Used by the built-in web control panel's push-to-talk button and by go2rtc/Frigate two-way talk (see the Frigate config above).
-  * **Body:** Raw 16-bit PCM mono 44.1kHz. Accepts `Content-Length`, `chunked` transfer-encoding and `Expect: 100-continue`.
-  * **Responses:** `200 OK` per complete body; `503 Service Unavailable` if streaming is disabled.
-* **Still Snapshot (`/video/snapshot`)**
-  * **Usage:** Fetch a single high-resolution image.
-  * **Format:** `image/jpeg`
-  * **Query Parameter:** `?camera=<id|front|back|toggle>` to query a specific camera sensor.
-    * *Example:* `https://[ip_address]:[port]/video/snapshot?camera=back`
-* **Device Info and Capabilities JSON (`/info.json`)**
-  * **Usage:** Query available camera sensors, their supported resolutions, device battery percentage, Wi-Fi signal strength and individual camera len settings.
-  * **Format:** `application/json`
-* **Start Recording (`/record/start`, POST)**
-  * **Usage:** Start recording the live camera feed to a local MP4 file. The camera and H.264 encoder are started on demand if not already running.
-  * **Responses:**
-    * `201 Created`: Recording started; returns the recording status JSON.
-    * `409 Conflict`: `{"error":"already_recording", ...}` — a recording is already in progress.
-    * `503 Service Unavailable`: `{"error":"no_encoder", ...}` — failed to initialize the H.264 encoder.
-    * `500 Internal Server Error`: `{"error":"start_failed", ...}` — recording failed to start.
-* **Stop Recording (`/record/stop`, POST)**
-  * **Usage:** Stop the in-progress local MP4 recording and finalize the file.
-  * **Responses:**
-    * `200 OK`: Recording stopped; returns the final recording status JSON.
-    * `409 Conflict`: `{"error":"not_recording", ...}` — no recording is in progress.
-    * `500 Internal Server Error`: `{"error":"stop_failed", ...}` — failed to finalize the recording.
-* **Recording Status (`/record/status`)**
-  * **Usage:** Query whether a local MP4 recording is currently active.
-  * **Format:** `application/json` — `{"recording":<bool>, "uri":<string>, "durationMs":<long>, "width":<int>, "height":<int>}` (or `{"recording":false}` when idle).
-* **Recordings Index (`/files`)**
-  * **Usage:** Open `https://[ip_address]:[port]/files` in a web browser for a folder index of the recordings stored on the device (`Movies/AndroidIPCamera`). Lists files only — no subfolder browsing.
-  * **Format:** `text/html` — static page shell that loads the file list from `/files.json`, renders each file as a link to its download URL plus a Delete button (with a browser confirmation prompt) that issues a `DELETE /files/<filename>` request.
-* **Recordings List JSON (`/files.json`)**
-  * **Usage:** Query the recordings folder listing programmatically or feed custom front-ends.
-  * **Format:** `application/json` — `{"folder":<string>, "files":[{"name":<string>, "sizeBytes":<long>, "lastModifiedMs":<long>}, ...]}`
-* **Download Recording (`/files/<filename>`, GET)**
-  * **Usage:** Download a recorded MP4 from the device. Browsers save the file instead of playing it (`Content-Disposition: attachment`).
-  * **Responses:** `200 OK` with the file bytes, `404 Not Found` if the file does not exist, `400 Bad Request` for invalid file names.
-* **Delete Recording (`/files/<filename>`, DELETE)**
-  * **Usage:** Permanently delete a recorded MP4 from the device.
-  * **Responses:**
-    * `200 OK`: `{"deleted":true}` — file deleted.
-    * `404 Not Found`: `{"error":"not_found"}` — no such file in the recordings folder.
-    * `500 Internal Server Error`: `{"error":"delete_failed"}` — the file exists but could not be deleted.
-* **Enable Streaming (`/control/start`)**
-  * **Usage:** Re-enable streaming of the media routes after it has been disabled (e.g. by a home-automation system).
-  * **Format:** `application/json` — `{"streaming":true}`
-* **Disable Streaming (`/control/stop`)**
-  * **Usage:** Stop serving the media routes (`/video/*`, `/audio*`, and the RTSP stream when enabled) without closing the listening port, and disconnect any viewers that are currently connected. The `/control/*` endpoints remain reachable so streaming can be turned back on remotely. When disabled, media routes return `503 Service Unavailable` with a hint to POST `/control/start`.
-  * **Format:** `application/json` — `{"streaming":false}`
-* **Streaming Status (`/control/status`)**
-  * **Usage:** Query whether streaming is currently enabled.
-  * **Format:** `application/json` — `{"streaming":<bool>}`
-
-### 📡 RTSP stream
-
-The app can also serve the camera over RTSP, the protocol most NVRs, home automation systems and video players expect from an IP camera. It is off by default: enable it in **Settings > RTSP / ONVIF > Enable RTSP**. The same switch also enables ONVIF. The address is then shown on the main screen:
-
-```
-rtsps://[username]:[password]@[ip_address]:8554/live
-```
-
-> **Note:** VLC does not reliably handle self-signed TLS certificates for RTSPS streams. Use **mpv** or **ffplay** to play, or use a trusted certificate. Disabling TLS may work with VLC, at the risk of sending your username/password in plaintext.
-
-* **Video:** the same hardware H.264 stream as `/video/h264` (resolution, frame rate, rotation and mirror follow the web controls). Each client starts at a keyframe.
-* **Sub stream:** `rtsps://[username]:[password]@[ip_address]:8554/live/sub` is a smaller version of the same picture for slow links such as 4G, and can be watched alongside the main stream. Choose its size (240p to 720p), frame rate and bitrate (300 to 2000 kbps, 500 by default) under **Settings > RTSP / ONVIF**; changes apply the next time a viewer connects. The phone encodes it in addition to the main stream only while someone watches it. Where the picture does not go through the GPU path (front camera, devices whose camera is not FULL level), the sub stream carries the main stream instead.
-* **Audio:** the microphone as AAC-LC (44.1 kHz mono), honouring the `audio_gain` control. Can be turned off with **Include Audio**, and is left out when the microphone permission is not granted.
-* **Transport:** RTP over UDP or interleaved in the RTSP TCP connection (`-rtsp_transport tcp`), whichever the client asks for. Audio and video carry RTCP sender reports, so players keep them in sync.
-* **Authentication:** the same username and password as the web server, using RTSP Digest authentication (Basic is accepted when a client sends it up front).
-* **Port:** `8554` by default, configurable with **RTSP Port** (it must differ from the streaming and ONVIF ports).
-* The camera starts when a client connects and is released when the last one leaves, as with the web streams. `/control/stop` also disconnects RTSP clients and refuses new ones until `/control/start`.
-
-When **TLS** is enabled, RTSP is served over TLS (`rtsps://`) using the same certificate as the web server and ONVIF, so the control connection and credentials are encrypted. With TLS disabled it is plain `rtsp://`, so only use it on a trusted network (or through a VPN) in that case.
-
-Examples:
-
-* **mpv:** `mpv "rtsps://[username]:[password]@[ip_address]:8554/live"`
-* **ffplay:** `ffplay -rtsp_transport tcp "rtsps://[username]:[password]@[ip_address]:8554/live"`
-
-### 🛰️ ONVIF camera
-
-ONVIF lets NVRs and home automation systems discover and control the camera as a standard IP camera. It is enabled together with RTSP by **Settings > RTSP / ONVIF > Enable RTSP** .
-
-* **ONVIF:** `https://[ip_address]:8000/onvif/device_service` (Profile S device, media and media2 services, WS-Discovery), or `http://` on the same port when TLS is disabled
-* **Snapshot:** `https://[ip_address]:8000/onvif/snapshot.jpg` (or `http://` without TLS)
-* **RTSP:** `rtsps://[username]:[password]@[ip_address]:8554/live`, or `rtsps://` on the same port when TLS is enabled
-* **Motion events:** turn on **Motion Detection** in the web interface. The app compares luma frames in the background and publishes ONVIF pull-point events (`tns1:RuleEngine/CellMotionDetector/Motion` and `tns1:VideoSource/MotionAlarm`). The **Sensitivity** slider (1 = least sensitive, 10 = most sensitive, default 5) controls how much of the frame must change. Lighting changes such as a TV cutting between scenes are ignored.
-* While motion detection is on, the camera runs continuously so it can see motion with no viewer connected. With it off, ONVIF and RTSP are still available on demand: the camera opens when a client connects and is released when the last one leaves.
-
-ONVIF and RTSP use the username and password from the Authentication settings. ONVIF discovery uses UDP multicast, so the phone and the client must be on the same network (or reachable through a VPN that forwards multicast).
-
-#### UniFi Protect
-
-1. If the phone is on the same network as the console, it shows up under third-party cameras. Otherwise, use **UniFi Devices > ? > Try advanced adoption** and enter `[ip_address]:8000` with the app's username and password.
-2. In the camera's Protect settings, turn **off audio recording** if audio is disabled in the app.
-3. Protect needs a motion zone for third-party cameras before it creates motion events. If none exists, add a full-frame one through the Protect API (the settings UI doesn't offer zones for third-party cameras).
-
-#### Home Assistant
-
-Add the phone with the **ONVIF** integration (host `https://[phone-ip]`, port `8000`), or adopt it in UniFi Protect and use the Protect integration. Both expose the camera and a motion binary sensor.
-
-### 🎛️ Remote Control Commands
-
-Settings can be changed dynamically by passing query parameters in HTTP GET requests (e.g., to the root path `/` or any control endpoint).
-
-* **Parameters:**
-  * `camera=<id|front|back|toggle>`: Switches the active camera sensor (supports logical:physical ids).
-  * `resolution=<low|medium|high|auto|max|WxH>`: Change capture/stream resolution. Use `low|medium|high` for presets; `auto`/`max` or explicit `WxH` may be used to control the negotiated stream size.
-  * `zoom=<value>`: Adjusts digital zoom (e.g., `1.0`, `2.5`).
-  * `scale=<value>`: Adjusts preview stream scale (per-camera; e.g., `0.5`, `1.0`).
-  * `exposure=<value>`: Adjusts exposure value (per-camera).
-  * `contrast=<value>`: Adjusts contrast (software; per-camera, integer).
-  * `torch=<on|off|toggle>`: Controls the flashlight.
-  * `audio_gain=<value>`: Changes microphone gain multiplier (e.g., `1.0`, `2.0`).
-  * `focus_distance=<0..1|-1>`: Set manual focus distance (0..1). Use `-1` to restore autofocus.
-  * `snapshot_res=<max|stream>`: Choose snapshot resolution for the selected camera (`max` for full sensor, `stream` to match current stream resolution).
-  * `rotate=<degrees>`: Rotate video stream/snapshot (persisted per-camera).
-  * `mirror=<true|false>`: Mirror the video.
-  * `api=<auto|camerax|camera1>`: Prefer capture API implementation.
-* **Example command:** `https://[ip_address]:[port]/?torch=on&zoom=2.0`
-
-## 🔐 HTTPS/TLS certificates
-
-To protect the stream and the password from being sent in plain-text, a certificate can be used to start the web stream over HTTPS.
-
-When TLS is enabled, the **same certificate** is also used by the RTSP (`rtsps://`) and ONVIF (`https://`) endpoints. If the certificate cannot be loaded, those servers refuse to start rather than falling back to plaintext.
-
-The app will automatically generate a self-signed certificate on first launch, but if you have your own domain you can use [Let's Encrypt](https://letsencrypt.org) to generate a trusted certificate and skip the self-signed security warning message, by changing the TLS certificate in the settings.
-
-To generate a new self-signed certificate, clear the app settings and restart or clone this repo and run `./scripts/generate-certificate.sh` then use the certificate `personal_certificate.p12` file it generates.
-
-## 🛂 Permissions
-
-The app uses the following permissions to function:
-
-* **Camera (`android.permission.CAMERA`):** Required to capture and stream the video feed.
-* **Microphone (`android.permission.RECORD_AUDIO`):** Required to record and stream audio. (Requested optionally at runtime; streaming works without audio if denied).
-* **Notifications (`android.permission.POST_NOTIFICATIONS`):** Required on Android 13+ to post a persistent foreground service notification, keeping the background streaming server running reliably.
-* **Network (`android.permission.INTERNET`, `android.permission.ACCESS_NETWORK_STATE`):** Required to host the server and stream data to your browser/connected clients.
-* **Storage (`android.permission.READ_EXTERNAL_STORAGE`, `android.permission.WRITE_EXTERNAL_STORAGE`):** Required on older Android versions to load custom TLS/HTTPS certificates from file storage and to save locally recorded MP4 files (`WRITE_EXTERNAL_STORAGE` only applies to Android 9 / API 28 and below; on newer versions recordings are saved to app-specific storage without extra permissions).
-* **Wi-Fi & Location (`android.permission.ACCESS_WIFI_STATE`, `android.permission.ACCESS_FINE_LOCATION`, `android.permission.ACCESS_COARSE_LOCATION`, `android.permission.NEARBY_WIFI_DEVICES`):** Used optionally to read the current Wi-Fi network's connection signal strength so it can be displayed in the web control panel overlay. If not granted, the Wi-Fi icon will be hidden. (Location permissions only apply to Android 12L / API 32 and below.)
-* **Start on boot (`android.permission.RECEIVE_BOOT_COMPLETED`):** Allows the app to optionally start streaming automatically when the device boots. This feature is off by default and must be enabled in the app settings.
-
-## 🤖 AI generated code disclaimer
-
-Some of the code in this repository may be generated with the assistance of AI tools. All changes are reviewed and tested on a real device with a human in the loop before being released.
-
-<details>
-<summary>Reproducible builds</summary>
-
-This project uses [reproducible builds](https://f-droid.org/docs/Reproducible_Builds/). Release APKs should be built from a clean tree at the tagged commit using Gradle directly:
+Requires Android SDK (`compileSdk 34`, `minSdk 24`) and JDK 17+:
 
 ```bash
-./gradlew clean assembleRelease
+export ANDROID_HOME=/path/to/Android/Sdk
+./gradlew assembleDebug
+# Or install directly to a connected ADB device:
+./gradlew installDebug
 ```
 
-The release variant will automatically sign the APK build. Build-tools 35+ is known to produce signatures that fail reproducibility verification.
+---
 
-You can also build the debug or signed release APKs with Docker: `docker build -t android-ip-camera:builder .` then `docker run --rm -v "$PWD":/workspace -v "$PWD/.cache/gradle":/cache/gradle android-ip-camera:builder debug` (or `release` to build with a signing key). See the [Dockerfile](Dockerfile) for caching and advanced usage.
+## 📖 Documentation
 
-### Build Variants
+* **Master Architecture Overview**: [docs/Architecture_Overview.md](docs/Architecture_Overview.md)
+* **Camera & Streaming Pipeline**: [docs/Camera_And_Streaming_Pipeline.md](docs/Camera_And_Streaming_Pipeline.md)
+* **Motion Gate, Vehicle Pre-Filter & Glare Detection**: [docs/Vehicle_And_Glare_PreDetection.md](docs/Vehicle_And_Glare_PreDetection.md)
+* **Web UI & HTTP API Reference**: [docs/WebUI_And_API_Reference.md](docs/WebUI_And_API_Reference.md)
 
-By default, release builds generate architecture-specific APK splits (armeabi-v7a, arm64-v8a) in addition to a universal APK. For F-Droid and other scenarios where a single universal APK is preferred, you can disable ABI splits:
+---
 
-**F-Droid builds (single universal APK):**
-```bash
-./gradlew clean assembleRelease -PenableAbiSplits=false
-```
+## ⚠️ Battery & 24/7 Background Usage
 
-**Release builds with architecture-specific APKs (default):**
-```bash
-./gradlew clean assembleRelease
-```
+* **Do not keep the battery at 100% 24/7** if your device supports a charging limit (e.g., 80%), as continuous heat and full charge can cause battery swelling.
+* **Unrestricted Battery Usage**: Set **Settings > Apps > Android ANPR > Battery** to **Unrestricted / Don't optimise**, and do not swipe the app away from Recents.
+* You can safely turn off the phone screen while the foreground service is running.
 
-The `enableAbiSplits` property defaults to `true`. Set it to `false` to generate only the universal APK, which is the recommended approach for F-Droid to avoid unnecessary complexity in the build pipeline.
+---
 
-To verify that two unsigned builds from the same source are identical:
+## 🙏 Credits & License
 
-```bash
-mkdir -p build/unsigned
-./gradlew clean assembleRelease -PskipSigning --no-daemon --max-workers=1 -Dorg.gradle.parallel=false
-cp app/build/outputs/apk/release/*universal-release.apk build/unsigned/build1.apk
-./gradlew clean assembleRelease -PskipSigning --no-daemon --max-workers=1 -Dorg.gradle.parallel=false
-cp app/build/outputs/apk/release/*universal-release.apk build/unsigned/build2.apk
-cmp -s build/unsigned/build1.apk build/unsigned/build2.apk && echo OK
-# or: shasum -a 256 build/unsigned/build1.apk build/unsigned/build2.apk
-```
-
-If they differ, inspect with `diffoscope build/unsigned/build1.apk build/unsigned/build2.apk`.
-
-To verify your **signed** release APK matches an unsigned rebuild use `apksigcopier` - the first APK must be signed:
-
-```bash
-./gradlew clean assembleRelease
-apksigcopier compare app/build/outputs/apk/release/*universal-release.apk --unsigned build/unsigned/build1.apk && echo OK
-```
-
-CI runs this check automatically via the [Reproducible Build workflow](.github/workflows/reproducible-build.yml).
-
-Builds downloaded from the [official repository](https://github.com/DigitallyRefined/android-ip-camera/releases) should match the following signing certificate:
-
-```bash
-apksigner verify --print-certs app/build/outputs/apk/release/*universal-release.apk
-Signer #1 certificate DN: CN=DigitallyRefined
-Signer #1 certificate SHA-256 digest: 1111be81c861e199c6485d367c37680c4b778fba301980d2f0f9a2800f77f70a
-Signer #1 certificate SHA-1 digest: 1560ceccdd719b2b97d431ad9a4c877abf5c2f32
-Signer #1 certificate MD5 digest: 5fdf04f5b6bab9fdacbe28aa6dc85abb
-```
-
-</details>
+* Upstream IP Camera foundation: [DigitallyRefined/android-ip-camera](https://github.com/DigitallyRefined/android-ip-camera)
+* License Plate Recognition SDK: [HyperLPR3](https://github.com/szad670401/HyperLPR)
+* Licensed under the terms of the [LICENSE](LICENSE) file in this repository.

@@ -310,6 +310,31 @@ class PlateEventStore private constructor(context: Context) :
         }
     }
 
+    fun deleteEventsByIds(ids: List<Long>): Int = synchronized(dbLock) {
+        if (ids.isEmpty()) return 0
+        try {
+            val db = writableDatabase
+            val placeholders = ids.joinToString(",") { "?" }
+            val args = ids.map { it.toString() }.toTypedArray()
+            db.query(
+                TABLE_EVENTS,
+                arrayOf("plate_img", "snap_img"),
+                "id IN ($placeholders)",
+                args,
+                null, null, null
+            ).use { c ->
+                while (c.moveToNext()) {
+                    deleteSnapFile(c.getString(0))
+                    deleteSnapFile(c.getString(1))
+                }
+            }
+            db.delete(TABLE_EVENTS, "id IN ($placeholders)", args)
+        } catch (e: Exception) {
+            Log.w(TAG, "deleteEventsByIds(${ids.size}) failed: ${e.message}")
+            0
+        }
+    }
+
     fun clearAllEvents(): Int = synchronized(dbLock) {
         try {
             val db = writableDatabase

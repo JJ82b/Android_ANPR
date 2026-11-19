@@ -450,6 +450,20 @@ class StreamingService : LifecycleService() {
                         put("frameWidth", fw)
                         put("frameHeight", fh)
                         put("processTimeMs", processTimeMs)
+                        put("vehicleDetectMs", recognizer.latestVehicleDetectMs)
+                        put("vehicleFilterStatus", recognizer.latestVehicleFilterStatus)
+                        put("vehicles", org.json.JSONArray().apply {
+                            for (v in recognizer.latestVehicles) {
+                                put(org.json.JSONObject().apply {
+                                    put("label", v.label)
+                                    put("confidence", v.confidence.toDouble())
+                                    put("x1", v.x1.toDouble())
+                                    put("y1", v.y1.toDouble())
+                                    put("x2", v.x2.toDouble())
+                                    put("y2", v.y2.toDouble())
+                                })
+                            }
+                        })
                         val telemetry = com.github.digitallyrefined.androidipcamera.helpers.StreamingServerHelper.readTelemetry(this@StreamingService)
                         put("batteryPowerW", telemetry.batteryPowerW)
                         put("batteryCharging", telemetry.batteryCharging)
@@ -473,6 +487,10 @@ class StreamingService : LifecycleService() {
                                 put("frameH", md.frameH)
                                 put("timestampMs", md.timestampMs)
                                 put("headlightCaptureActive", md.headlightCaptureActive)
+                                put("glareX1", md.glareX1.toDouble())
+                                put("glareY1", md.glareY1.toDouble())
+                                put("glareX2", md.glareX2.toDouble())
+                                put("glareY2", md.glareY2.toDouble())
                             })
                         }
                         put("plates", org.json.JSONArray().apply {
@@ -530,7 +548,13 @@ class StreamingService : LifecycleService() {
                         aeRegionEnabled = params["aeRegionEnabled"]?.let { it == "true" || it == "1" } ?: current.aeRegionEnabled,
                         antiOverexposureEnabled = params["antiOverexposureEnabled"]?.let { it == "true" || it == "1" } ?: current.antiOverexposureEnabled,
                         flashCaptureMode = params["flashCaptureMode"] ?: current.flashCaptureMode,
-                        skipCaptureIfFastShutter = params["skipCaptureIfFastShutter"]?.let { it == "true" || it == "1" } ?: current.skipCaptureIfFastShutter
+                        skipCaptureIfFastShutter = params["skipCaptureIfFastShutter"]?.let { it == "true" || it == "1" } ?: current.skipCaptureIfFastShutter,
+                        vehicleFilterMode = params["vehicleFilterMode"] ?: current.vehicleFilterMode,
+                        vehicleConfThreshold = params["vehicleConfThreshold"]?.toFloatOrNull() ?: current.vehicleConfThreshold,
+                        vehicleCropEnabled = params["vehicleCropEnabled"]?.let { it == "true" || it == "1" } ?: current.vehicleCropEnabled,
+                        motionTorchTriggerMode = params["motionTorchTriggerMode"] ?: current.motionTorchTriggerMode,
+                        feedVehicleOnly = params["feedVehicleOnly"]?.let { it == "true" || it == "1" } ?: current.feedVehicleOnly,
+                        vehicleModelName = params["vehicleModelName"] ?: current.vehicleModelName
                     )
                     val saved = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.saveConfig(this, updated)
                     plateRecognizer.reloadConfig(saved)
@@ -558,12 +582,32 @@ class StreamingService : LifecycleService() {
                 },
                 onPlateEventsDelete = { params ->
                     val store = com.github.digitallyrefined.androidipcamera.helpers.PlateEventStore.getInstance(this)
+                    val idsList = params["ids"]?.split(',')?.mapNotNull { it.trim().toLongOrNull() }.orEmpty()
                     val deleted = when {
                         params["all"] == "true" || params["all"] == "1" -> store.clearAllEvents()
+                        idsList.isNotEmpty() -> store.deleteEventsByIds(idsList)
                         params["id"]?.toLongOrNull() != null -> store.deleteEventById(params["id"]!!.toLong())
                         else -> 0
                     }
                     """{"deleted":$deleted}"""
+                },
+                onVehicleModelsList = {
+                    com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.listVehicleModelsJson(this)
+                },
+                onVehicleModelUpload = { name, bytes ->
+                    val (ok, res) = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.saveCustomVehicleModel(this, name, bytes)
+                    org.json.JSONObject().apply {
+                        put("ok", ok)
+                        if (ok) put("name", res) else put("error", res)
+                    }.toString()
+                },
+                onVehicleModelDelete = { name ->
+                    val ok = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.deleteCustomVehicleModel(this, name)
+                    if (ok) {
+                        val cfg = com.github.digitallyrefined.androidipcamera.helpers.PlateRecognizer.loadConfig(this)
+                        plateRecognizer.reloadConfig(cfg)
+                    }
+                    org.json.JSONObject().apply { put("ok", ok) }.toString()
                 },
                 isCameraActive = { captureRunning }
             )

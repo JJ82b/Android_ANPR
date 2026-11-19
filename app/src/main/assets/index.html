@@ -193,6 +193,50 @@
       margin-bottom: 15px;
     }
 
+    details.ctrl-accordion {
+      background: #1b2230;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+
+    details.ctrl-accordion > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 11px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      background: rgba(30, 41, 59, 0.7);
+    }
+
+    details.ctrl-accordion > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.ctrl-accordion > summary::after {
+      content: '▸';
+      font-size: 12px;
+      color: #94a3b8;
+      transition: transform 0.15s ease;
+    }
+
+    details.ctrl-accordion[open] > summary::after {
+      transform: rotate(90deg);
+      color: #38bdf8;
+    }
+
+    details.ctrl-accordion > .ctrl-acc-body {
+      padding: 12px;
+      border-top: 1px solid #283244;
+    }
+
     h3 {
       margin-top: 0;
       font-size: 14px;
@@ -424,6 +468,104 @@
       display: none;
     }
 
+    .pb-cal-wrap {
+      position: relative;
+      display: inline-block;
+    }
+
+    .pb-cal-popup {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      width: 248px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+      z-index: 60;
+      user-select: none;
+    }
+
+    .pb-cal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .pb-cal-weekdays,
+    .pb-cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      text-align: center;
+    }
+
+    .pb-cal-weekdays {
+      font-size: 10px;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+
+    .pb-cal-day {
+      position: relative;
+      height: 30px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      background: transparent;
+      color: #e2e8f0;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0 0 3px 0;
+    }
+
+    .pb-cal-day:hover {
+      background: #1e293b;
+    }
+
+    .pb-cal-day.other-month {
+      color: #475569;
+    }
+
+    .pb-cal-day.today {
+      border-color: #38bdf8;
+    }
+
+    .pb-cal-day.selected {
+      background: #2563eb;
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .pb-cal-dot {
+      position: absolute;
+      bottom: 3px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 4px rgba(34, 197, 94, 0.8);
+    }
+
+    .pb-cal-day.selected .pb-cal-dot {
+      background: #ffffff;
+      box-shadow: none;
+    }
+
+    .pb-cal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #1e293b;
+    }
+
     .playback-bar {
       display: flex;
       flex-wrap: wrap;
@@ -584,7 +726,6 @@
             <div style="display: flex; align-items: center; gap: 6px;">
               <span id="alpr-latency" style="font-size: 11px; color: #94a3b8;">--ms</span>
               <button id="alpr-flash-capture-btn" type="button" title="闪光灯亮起后自动切换指定 ISO 与快门抓拍" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprFlashCaptureBtn">闪光抓拍</button>
-              <button id="alpr-headlight-btn" type="button" title="仅局部亮度大幅变化（如车灯）时进入抓拍模式" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprHeadlightBtn">车灯抓拍</button>
               <button id="alpr-motion-vis-btn" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprMotionVis">运动区块</button>
               <button id="alpr-adv-toggle" type="button" style="background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.45); color: #e2e8f0; border-radius: 4px; padding: 2px 8px; font-size: 12px; cursor: pointer;" data-i18n="alprAdvToggle">高级选项 ▾</button>
             </div>
@@ -594,51 +735,120 @@
             <span id="alpr-meta" style="font-size: 12px; color: #cbd5e1;"></span>
           </div>
           <div id="alpr-adv-panel" style="display: none; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(148,163,184,0.3); color: #e2e8f0;">
-            <label for="alprBackend" data-i18n="alprBackend">推理后端 (Backend)</label>
-            <select id="alprBackend" class="camera-select" style="margin-bottom: 10px;">
-              <option value="cpu" data-i18n="alprBackendCpu">CPU (libhyperlpr3.so)</option>
-              <option value="gpu" data-i18n="alprBackendGpu">GPU OpenCL (libhyperlpr3_gpu.so)</option>
-            </select>
+            <!-- 1. 模型与推理参数 -->
+            <div style="margin-bottom: 10px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.25);">
+              <div style="font-size: 12px; font-weight: 700; color: #93c5fd; margin-bottom: 6px;">1. 模型与推理参数</div>
+              <label for="alprBackend" data-i18n="alprBackend">推理后端 (Backend)</label>
+              <select id="alprBackend" class="camera-select" style="margin-bottom: 8px;">
+                <option value="cpu" data-i18n="alprBackendCpu">CPU (libhyperlpr3.so)</option>
+                <option value="gpu" data-i18n="alprBackendGpu">GPU OpenCL (libhyperlpr3_gpu.so)</option>
+              </select>
 
-            <label for="alprDetLevel" data-i18n="alprDetLevel">检测精度 (DetLevel)</label>
-            <select id="alprDetLevel" class="camera-select" style="margin-bottom: 10px;">
-              <option value="1" data-i18n="alprDetHigh">高精度 (DETECT_LEVEL_HIGH)</option>
-              <option value="0" data-i18n="alprDetLow">低功耗 (DETECT_LEVEL_LOW)</option>
-            </select>
+              <label for="alprDetLevel" data-i18n="alprDetLevel">检测精度 (DetLevel)</label>
+              <select id="alprDetLevel" class="camera-select" style="margin-bottom: 8px;">
+                <option value="1" data-i18n="alprDetHigh">高精度 (DETECT_LEVEL_HIGH)</option>
+                <option value="0" data-i18n="alprDetLow">低功耗 (DETECT_LEVEL_LOW)</option>
+              </select>
 
-            <label for="alprMaxNum"><span data-i18n="alprMaxNum">单帧最大车牌数 (MaxNum)</span> <span class="val-badge" id="alprMaxNumVal">3</span></label>
-            <input type="range" id="alprMaxNum" min="1" max="10" step="1" value="3">
+              <label for="alprMaxNum"><span data-i18n="alprMaxNum">单帧最大车牌数 (MaxNum)</span> <span class="val-badge" id="alprMaxNumVal">3</span></label>
+              <input type="range" id="alprMaxNum" min="1" max="10" step="1" value="3">
 
-            <label for="alprBoxConf"><span data-i18n="alprBoxConf">检测框阈值 (BoxConfThreshold)</span> <span class="val-badge" id="alprBoxConfVal">0.20</span></label>
-            <input type="range" id="alprBoxConf" min="0.05" max="0.95" step="0.05" value="0.20">
+              <label for="alprBoxConf"><span data-i18n="alprBoxConf">检测框阈值 (BoxConfThreshold)</span> <span class="val-badge" id="alprBoxConfVal">0.20</span></label>
+              <input type="range" id="alprBoxConf" min="0.05" max="0.95" step="0.05" value="0.20">
 
-            <label for="alprRecConf"><span data-i18n="alprRecConf">识别置信度阈值 (RecConfThreshold)</span> <span class="val-badge" id="alprRecConfVal">0.65</span></label>
-            <input type="range" id="alprRecConf" min="0.30" max="0.99" step="0.01" value="0.65">
+              <label for="alprRecConf"><span data-i18n="alprRecConf">识别置信度阈值 (RecConfThreshold)</span> <span class="val-badge" id="alprRecConfVal">0.65</span></label>
+              <input type="range" id="alprRecConf" min="0.30" max="0.99" step="0.01" value="0.65">
 
-            <label for="alprThreads"><span data-i18n="alprThreads">CPU 推理线程数 (Threads)</span> <span class="val-badge" id="alprThreadsVal">4</span></label>
-            <input type="range" id="alprThreads" min="1" max="8" step="1" value="4">
+              <label for="alprThreads"><span data-i18n="alprThreads">CPU 推理线程数 (Threads)</span> <span class="val-badge" id="alprThreadsVal">4</span></label>
+              <input type="range" id="alprThreads" min="1" max="8" step="1" value="4">
 
-            <label for="alprIntervalMs"><span data-i18n="alprIntervalMs">车牌采样间隔 (Interval)</span> <span class="val-badge" id="alprIntervalMsVal">200ms</span></label>
-            <input type="range" id="alprIntervalMs" min="50" max="2000" step="50" value="200">
+              <label for="alprIntervalMs"><span data-i18n="alprIntervalMs">车牌采样间隔 (Interval)</span> <span class="val-badge" id="alprIntervalMsVal">200ms</span></label>
+              <input type="range" id="alprIntervalMs" min="50" max="2000" step="50" value="200">
+            </div>
 
-            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
-              <input type="checkbox" id="alprMotionGate" checked style="width: auto; margin: 0;">
-              <span data-i18n="alprMotionGate">静止节能门控 (MotionGate)</span>
-            </label>
+            <!-- 2. 运动门控与车辆预检 -->
+            <div style="margin-bottom: 10px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.3);">
+              <div style="font-size: 12px; font-weight: 700; color: #38bdf8; margin-bottom: 6px;">2. 运动门控与车辆预检</div>
+              <label style="display: flex; align-items: center; gap: 8px; margin-top: 2px; cursor: pointer;">
+                <input type="checkbox" id="alprMotionGate" checked style="width: auto; margin: 0;">
+                <span data-i18n="alprMotionGate">静止节能门控 (MotionGate)</span>
+              </label>
 
-            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
-              <input type="checkbox" id="alprMotionCrop" style="width: auto; margin: 0;">
-              <span data-i18n="alprMotionCrop">运动团块动态裁剪 (MotionCrop)</span>
-            </label>
+              <label for="alprVehicleFilterMode" style="margin-top: 8px;">运动车辆预检过滤 (Vehicle Pre-Filter)</label>
+              <select id="alprVehicleFilterMode" class="camera-select" style="margin-bottom: 6px;">
+                <option value="off">关闭 (仅运动门控)</option>
+                <option value="heuristic">方案一: 几何宽高比 + 轨迹过滤 (0ms)</option>
+                <option value="tflite">方案二: TFLite 车辆检测 (支持更换/上传模型)</option>
+              </select>
+              <div id="alpr-vehicle-tflite-box" style="display: none; margin-top: 4px; padding: 6px; background: rgba(30, 41, 59, 0.55); border-radius: 4px;">
+                <label for="alprVehicleModel" style="margin-top: 0;">车辆检测模型 (.tflite)</label>
+                <select id="alprVehicleModel" class="camera-select" style="margin-bottom: 6px;">
+                  <option value="vehicle_efficientdet_lite0.tflite">EfficientDet-Lite0 (320×320 · 推荐均衡)</option>
+                  <option value="vehicle_efficientdet_lite1.tflite">EfficientDet-Lite1 (384×384 · 高精度远距)</option>
+                  <option value="vehicle_ssd_mobilenet.tflite">MobileNetV1-SSD (300×300 · 极速轻量)</option>
+                </select>
+                <div style="display: flex; gap: 6px; align-items: center; margin-bottom: 6px;">
+                  <input type="file" id="alprVehicleModelFile" accept=".tflite" style="display: none;">
+                  <button id="alprVehicleModelUploadBtn" type="button" class="btn" style="flex: 1; margin: 0; padding: 4px 8px; font-size: 11px;">📤 上传自定义 .tflite (含YOLOv8)</button>
+                  <button id="alprVehicleModelDelBtn" type="button" class="btn" style="display: none; margin: 0; padding: 4px 8px; font-size: 11px; background: rgba(220,38,38,0.65);">删除</button>
+                </div>
+                <div id="alprVehicleModelMsg" style="font-size: 11px; color: #94a3b8; margin-bottom: 4px;"></div>
+                <label for="alprVehicleConf">车辆检测置信度: <span id="alprVehicleConfVal" class="val-badge">0.35</span></label>
+                <input type="range" id="alprVehicleConf" min="0.15" max="0.85" step="0.05" value="0.35" style="margin-bottom: 0;">
+              </div>
 
-            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
-              <input type="checkbox" id="alprMotionTorch" style="width: auto; margin: 0;">
-              <span data-i18n="alprMotionTorch">检测到运动自动开启闪光灯 (5秒延时熄灭)</span>
-            </label>
+              <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
+                <input type="checkbox" id="alprMotionCrop" style="width: auto; margin: 0;">
+                <span data-i18n="alprMotionCrop">动态裁剪识别 (TFLite 模式下裁剪车辆框)</span>
+              </label>
 
-            <div id="alpr-flash-capture-box" style="margin-top: 6px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(250, 204, 21, 0.35);">
-              <div style="font-size: 12px; color: #fde047; margin-bottom: 6px;" data-i18n="alprFlashCaptureParams">闪光/车灯抓拍预设</div>
-              <label for="alprFlashCaptureMode" data-i18n="alprFlashCaptureModeLabel">抓拍曝光策略</label>
+              <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
+                <input type="checkbox" id="alprRoiEnabled" style="width: auto; margin: 0;">
+                <span data-i18n="alprRoiEnabled">固定识别区域裁剪 (ROI)</span>
+              </label>
+              <div id="alpr-roi-box" style="display: none; margin-top: 6px; padding: 8px; background: rgba(30, 41, 59, 0.55); border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.35);">
+                <label for="alprRoiX"><span data-i18n="alprRoiX">ROI 左边界 (X)</span> <span class="val-badge" id="alprRoiXVal">0.00</span></label>
+                <input type="range" id="alprRoiX" min="0" max="0.90" step="0.05" value="0.00">
+                <label for="alprRoiY"><span data-i18n="alprRoiY">ROI 上边界 (Y)</span> <span class="val-badge" id="alprRoiYVal">0.25</span></label>
+                <input type="range" id="alprRoiY" min="0" max="0.90" step="0.05" value="0.25">
+                <label for="alprRoiW"><span data-i18n="alprRoiW">ROI 宽度 (W)</span> <span class="val-badge" id="alprRoiWVal">1.00</span></label>
+                <input type="range" id="alprRoiW" min="0.10" max="1.00" step="0.05" value="1.00">
+                <label for="alprRoiH"><span data-i18n="alprRoiH">ROI 高度 (H)</span> <span class="val-badge" id="alprRoiHVal">0.75</span></label>
+                <input type="range" id="alprRoiH" min="0.10" max="1.00" step="0.05" value="0.75">
+              </div>
+            </div>
+
+            <!-- 3. 补光与夜间抓拍 -->
+            <div id="alpr-flash-capture-box" style="margin-bottom: 10px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(250, 204, 21, 0.35);">
+              <div style="font-size: 12px; font-weight: 700; color: #fde047; margin-bottom: 6px;" data-i18n="alprFlashCaptureParams">3. 补光与夜间抓拍</div>
+
+              <label style="display: flex; align-items: center; gap: 8px; margin-top: 2px; cursor: pointer;">
+                <input type="checkbox" id="alprMotionTorch" style="width: auto; margin: 0;">
+                <span data-i18n="alprMotionTorch">检测到运动自动开启闪光灯 (5秒延时熄灭)</span>
+              </label>
+              <div id="alpr-torch-trigger-row" style="display: none; margin: 4px 0 6px 20px;">
+                <select id="alprMotionTorchTriggerMode" class="camera-select" style="margin-bottom: 0;">
+                  <option value="motion">触发条件: 检测到任意运动即开启</option>
+                  <option value="vehicle">触发条件: 仅检测到运动车辆才开启</option>
+                  <option value="headlight">触发条件: 仅检测到运动强光才开启</option>
+                  <option value="vehicle_or_headlight">触发条件: 检测到运动车辆或运动强光开启</option>
+                </select>
+              </div>
+
+              <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
+                <input type="checkbox" id="alprHeadlightCapture" style="width: auto; margin: 0;">
+                <span data-i18n="alprHeadlightCapture">运动强光抓拍 (检测到移动强光进入抓拍模式)</span>
+              </label>
+              <div id="alpr-headlight-box" style="display: none; margin-top: 6px; padding: 8px; background: rgba(30, 41, 59, 0.55); border-radius: 6px; border: 1px solid rgba(52, 211, 153, 0.35);">
+                <label for="alprHeadlightDiff"><span data-i18n="alprHeadlightDiff">车灯亮度跳变阈值</span> <span class="val-badge" id="alprHeadlightDiffVal">55</span></label>
+                <input type="range" id="alprHeadlightDiff" min="30" max="120" step="5" value="55">
+                <label for="alprHeadlightMinRatio"><span data-i18n="alprHeadlightMinRatio">高亮区最小占比</span> <span class="val-badge" id="alprHeadlightMinRatioVal">2%</span></label>
+                <input type="range" id="alprHeadlightMinRatio" min="0.01" max="0.20" step="0.01" value="0.02">
+                <label for="alprHeadlightMaxRatio"><span data-i18n="alprHeadlightMaxRatio">高亮区最大占比 (防全屏突变)</span> <span class="val-badge" id="alprHeadlightMaxRatioVal">55%</span></label>
+                <input type="range" id="alprHeadlightMaxRatio" min="0.20" max="0.90" step="0.05" value="0.55">
+              </div>
+
+              <label for="alprFlashCaptureMode" style="margin-top: 8px;" data-i18n="alprFlashCaptureModeLabel">抓拍曝光策略</label>
               <select id="alprFlashCaptureMode" class="camera-select" style="margin-bottom: 8px;">
                 <option value="manual" data-i18n="alprCaptureModeManual">手动感光度 + 快门速度</option>
                 <option value="ae_region" data-i18n="alprCaptureModeAeRegion">区域曝光测光 (跟随 ROI / 下车道)</option>
@@ -676,56 +886,30 @@
               </label>
             </div>
 
-            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
-              <input type="checkbox" id="alprHeadlightCapture" style="width: auto; margin: 0;">
-              <span data-i18n="alprHeadlightCapture">车灯高亮抓拍 (仅局部亮度剧变进入抓拍模式)</span>
-            </label>
-            <div id="alpr-headlight-box" style="display: none; margin-top: 6px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(52, 211, 153, 0.35);">
-              <label for="alprHeadlightDiff"><span data-i18n="alprHeadlightDiff">车灯亮度跳变阈值</span> <span class="val-badge" id="alprHeadlightDiffVal">55</span></label>
-              <input type="range" id="alprHeadlightDiff" min="30" max="120" step="5" value="55">
-              <label for="alprHeadlightMinRatio"><span data-i18n="alprHeadlightMinRatio">高亮区最小占比</span> <span class="val-badge" id="alprHeadlightMinRatioVal">2%</span></label>
-              <input type="range" id="alprHeadlightMinRatio" min="0.01" max="0.20" step="0.01" value="0.02">
-              <label for="alprHeadlightMaxRatio"><span data-i18n="alprHeadlightMaxRatio">高亮区最大占比 (防全屏突变)</span> <span class="val-badge" id="alprHeadlightMaxRatioVal">55%</span></label>
-              <input type="range" id="alprHeadlightMaxRatio" min="0.20" max="0.90" step="0.05" value="0.55">
-            </div>
-
-            <label style="display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer;">
-              <input type="checkbox" id="alprRoiEnabled" style="width: auto; margin: 0;">
-              <span data-i18n="alprRoiEnabled">固定识别区域裁剪 (ROI)</span>
-            </label>
-
-            <div id="alpr-roi-box" style="display: none; margin-top: 6px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.35);">
-              <label for="alprRoiX"><span data-i18n="alprRoiX">ROI 左边界 (X)</span> <span class="val-badge" id="alprRoiXVal">0.00</span></label>
-              <input type="range" id="alprRoiX" min="0" max="0.90" step="0.05" value="0.00">
-              <label for="alprRoiY"><span data-i18n="alprRoiY">ROI 上边界 (Y)</span> <span class="val-badge" id="alprRoiYVal">0.25</span></label>
-              <input type="range" id="alprRoiY" min="0" max="0.90" step="0.05" value="0.25">
-              <label for="alprRoiW"><span data-i18n="alprRoiW">ROI 宽度 (W)</span> <span class="val-badge" id="alprRoiWVal">1.00</span></label>
-              <input type="range" id="alprRoiW" min="0.10" max="1.00" step="0.05" value="1.00">
-              <label for="alprRoiH"><span data-i18n="alprRoiH">ROI 高度 (H)</span> <span class="val-badge" id="alprRoiHVal">0.75</span></label>
-              <input type="range" id="alprRoiH" min="0.10" max="1.00" step="0.05" value="0.75">
-            </div>
-
-            <div id="alpr-motion-tune-box" style="margin-top: 8px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.35);">
-              <div style="font-size: 12px; color: #38bdf8; margin-bottom: 6px;" data-i18n="alprMotionTuneTitle">动作检测灵敏度调试</div>
-              <label for="alprMotionDiff"><span data-i18n="alprMotionDiff">单格亮度变化阈值 (越大越抗噪)</span> <span class="val-badge" id="alprMotionDiffVal">20</span></label>
-              <input type="range" id="alprMotionDiff" min="5" max="60" step="1" value="20">
-              <label for="alprMotionArea"><span data-i18n="alprMotionArea">触发运动最小面积占比</span> <span class="val-badge" id="alprMotionAreaVal">5%</span></label>
-              <input type="range" id="alprMotionArea" min="0.01" max="0.30" step="0.01" value="0.05">
-              <label for="alprMotionBgAlpha"><span data-i18n="alprMotionBgAlpha">背景自适应速度 (Alpha)</span> <span class="val-badge" id="alprMotionBgAlphaVal">0.05</span></label>
-              <input type="range" id="alprMotionBgAlpha" min="0.01" max="0.30" step="0.01" value="0.05">
-              <label for="alprMotionMinCells"><span data-i18n="alprMotionMinCells">动态裁切最小团块格数</span> <span class="val-badge" id="alprMotionMinCellsVal">6</span></label>
-              <input type="range" id="alprMotionMinCells" min="2" max="30" step="1" value="6">
-              <label for="alprMotionPad"><span data-i18n="alprMotionPad">动态裁切外扩比例</span> <span class="val-badge" id="alprMotionPadVal">28%</span></label>
-              <input type="range" id="alprMotionPad" min="0.05" max="0.60" step="0.02" value="0.28">
-              <label for="alprMotionBackoff"><span data-i18n="alprMotionBackoff">静止退避间隔</span> <span class="val-badge" id="alprMotionBackoffVal">1000ms</span></label>
-              <input type="range" id="alprMotionBackoff" min="300" max="3000" step="100" value="1000">
-              <label for="alprMotionTorchHold"><span data-i18n="alprMotionTorchHold">运动亮灯保持时长</span> <span class="val-badge" id="alprMotionTorchHoldVal">5.0s</span></label>
-              <input type="range" id="alprMotionTorchHold" min="1000" max="15000" step="500" value="5000">
-              <label for="alprTorchSettle"><span data-i18n="alprTorchSettle">闪光灯切换稳定期 (防自激)</span> <span class="val-badge" id="alprTorchSettleVal">1000ms</span></label>
-              <input type="range" id="alprTorchSettle" min="300" max="3000" step="100" value="1000">
-              <label for="alprGlobalJumpRatio"><span data-i18n="alprGlobalJumpRatio">全屏光照突变抑制阈值</span> <span class="val-badge" id="alprGlobalJumpRatioVal">75%</span></label>
-              <input type="range" id="alprGlobalJumpRatio" min="0.50" max="0.95" step="0.05" value="0.75">
-            </div>
+            <!-- 4. 动作检测灵敏度调试 -->
+            <details id="alpr-motion-tune-box" style="margin-top: 8px; padding: 8px; background: rgba(15, 23, 42, 0.55); border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.25);">
+              <summary style="font-size: 12px; font-weight: 700; color: #38bdf8; cursor: pointer; outline: none;" data-i18n="alprMotionTuneTitle">4. 动作检测灵敏度调试 ▾</summary>
+              <div style="margin-top: 8px;">
+                <label for="alprMotionDiff"><span data-i18n="alprMotionDiff">单格亮度变化阈值 (越大越抗噪)</span> <span class="val-badge" id="alprMotionDiffVal">20</span></label>
+                <input type="range" id="alprMotionDiff" min="5" max="60" step="1" value="20">
+                <label for="alprMotionArea"><span data-i18n="alprMotionArea">触发运动最小面积占比</span> <span class="val-badge" id="alprMotionAreaVal">5%</span></label>
+                <input type="range" id="alprMotionArea" min="0.01" max="0.30" step="0.01" value="0.05">
+                <label for="alprMotionBgAlpha"><span data-i18n="alprMotionBgAlpha">背景自适应速度 (Alpha)</span> <span class="val-badge" id="alprMotionBgAlphaVal">0.05</span></label>
+                <input type="range" id="alprMotionBgAlpha" min="0.01" max="0.30" step="0.01" value="0.05">
+                <label for="alprMotionMinCells"><span data-i18n="alprMotionMinCells">动态裁切最小团块格数</span> <span class="val-badge" id="alprMotionMinCellsVal">6</span></label>
+                <input type="range" id="alprMotionMinCells" min="2" max="30" step="1" value="6">
+                <label for="alprMotionPad"><span data-i18n="alprMotionPad">动态裁切外扩比例</span> <span class="val-badge" id="alprMotionPadVal">28%</span></label>
+                <input type="range" id="alprMotionPad" min="0.05" max="0.60" step="0.02" value="0.28">
+                <label for="alprMotionBackoff"><span data-i18n="alprMotionBackoff">静止退避间隔</span> <span class="val-badge" id="alprMotionBackoffVal">1000ms</span></label>
+                <input type="range" id="alprMotionBackoff" min="300" max="3000" step="100" value="1000">
+                <label for="alprMotionTorchHold"><span data-i18n="alprMotionTorchHold">运动亮灯保持时长</span> <span class="val-badge" id="alprMotionTorchHoldVal">5.0s</span></label>
+                <input type="range" id="alprMotionTorchHold" min="1000" max="15000" step="500" value="5000">
+                <label for="alprTorchSettle"><span data-i18n="alprTorchSettle">闪光灯切换稳定期 (防自激)</span> <span class="val-badge" id="alprTorchSettleVal">1000ms</span></label>
+                <input type="range" id="alprTorchSettle" min="300" max="3000" step="100" value="1000">
+                <label for="alprGlobalJumpRatio"><span data-i18n="alprGlobalJumpRatio">全屏光照突变抑制阈值</span> <span class="val-badge" id="alprGlobalJumpRatioVal">75%</span></label>
+                <input type="range" id="alprGlobalJumpRatio" min="0.50" max="0.95" step="0.05" value="0.75">
+              </div>
+            </details>
 
             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
               <span id="alpr-adv-status" style="font-size: 12px; color: #cbd5e1;"></span>
@@ -736,180 +920,208 @@
         <div id="alpr-extra-cards"></div>
 
         <div class='setting-group'>
-          <h3 data-i18n="settingsTitle">基础设置</h3>
-          <div style="display:flex; gap:8px; align-items:flex-end; margin-bottom:15px;">
-            <div style="width:calc(50% - 4px); min-width:0;">
-              <label for="cameraSelect"><span data-i18n="cameraLabel">摄像头</span> <span class="val-badge" id="cameraFacingBadge">&mdash;</span></label>
-              <div class="camera-controls" style="margin-bottom:0;">
-                <select id="cameraSelect" class="camera-select" onchange='setCamera(this.value)'></select>
+          <h3 data-i18n="settingsTitle" style="margin-bottom: 10px;">控制面板（点击展开，防误触）</h3>
+
+          <!-- 1. 摄像头与音视频流 -->
+          <details class="ctrl-accordion">
+            <summary><span>📹 摄像头与音视频流</span></summary>
+            <div class="ctrl-acc-body">
+              <div style="display:flex; gap:8px; align-items:flex-end; margin-bottom:15px;">
+                <div style="width:calc(50% - 4px); min-width:0;">
+                  <label for="cameraSelect"><span data-i18n="cameraLabel">摄像头</span> <span class="val-badge" id="cameraFacingBadge">&mdash;</span></label>
+                  <div class="camera-controls" style="margin-bottom:0;">
+                    <select id="cameraSelect" class="camera-select" onchange='setCamera(this.value)'></select>
+                  </div>
+                </div>
+                <button id="flashBtn" class="btn btn-action" style="width:calc(50% - 4px); margin-bottom:0;" data-i18n="flashOn">💡 开启闪光灯</button>
+              </div>
+
+              <div>
+                <button id="muteBtn" class="btn btn-action" style="width: 49%;" data-i18n="unmuteAudio">🔇 开启声音</button>
+                <button id="pttBtn" class="btn btn-action" style="width: 49%; margin-bottom: 0;" data-i18n="holdToTalk">🎙️ 按住对讲</button>
+              </div>
+
+              <div id="audioControls">
+                <label for="avDelay"><span data-i18n="avDelayLabel">音画同步延迟</span> <span class='val-badge' id='avDelayVal'>2.5s</span></label>
+                <input type='range' id='avDelay' min='0' max='5' step='0.1' value='2.5'>
+
+                <label for="audioGain"><span data-i18n="audioGainLabel">音频增益</span> <span class='val-badge' id='audioGainVal'>1.0</span></label>
+                <input id="audioGain" type='range' min='0.5' max='3.0' step='0.1' value='1.0' data-control='audio_gain'
+                  data-badge='audioGainVal'>
+              </div>
+
+              <div>
+                <button id="modeH264Btn" class="btn btn-action" style="width: 49%;">H.264</button>
+                <button id="modeMjpegBtn" class="btn btn-action" style="width: 49%;">MJPEG</button>
+              </div>
+
+              <div style="margin-top: 8px;">
+                <label for="bitrate" data-i18n="bitrateLabel">H.264 码率 (kbps, 0 = 自动)</label>
+                <input id="bitrate" type='number' min='0' max='20000' step='100' value='0' data-control='bitrate' style="margin-bottom: 8px;">
+                <button id="allowLimitedSurfaceBtn" type="button" class="btn btn-action" style="width: 100%; margin-bottom: 0;">🔒 LIMITED GPU直出: 已关闭</button>
               </div>
             </div>
-            <button id="flashBtn" class="btn btn-action" style="width:calc(50% - 4px); margin-bottom:0;" data-i18n="flashOn">💡 开启闪光灯</button>
-          </div>
+          </details>
 
-          <div>
-            <button id="muteBtn" class="btn btn-action" style="width: 49%;" data-i18n="unmuteAudio">🔇 开启声音</button>
-            <button id="pttBtn" class="btn btn-action" style="width: 49%; margin-bottom: 0;" data-i18n="holdToTalk">🎙️ 按住对讲</button>
-          </div>
-
-          <div id="audioControls">
-            <label for="avDelay"><span data-i18n="avDelayLabel">音画同步延迟</span> <span class='val-badge' id='avDelayVal'>2.5s</span></label>
-            <input type='range' id='avDelay' min='0' max='5' step='0.1' value='2.5'>
-
-            <label for="audioGain"><span data-i18n="audioGainLabel">音频增益</span> <span class='val-badge' id='audioGainVal'>1.0</span></label>
-            <input id="audioGain" type='range' min='0.5' max='3.0' step='0.1' value='1.0' data-control='audio_gain'
-              data-badge='audioGainVal'>
-          </div>
-
-          <div>
-            <button id="modeH264Btn" class="btn btn-action" style="width: 49%;">H.264</button>
-            <button id="modeMjpegBtn" class="btn btn-action" style="width: 49%;">MJPEG</button>
-          </div>
-
-          <div style="margin-top: 8px; margin-bottom: 10px;">
-            <label for="bitrate" data-i18n="bitrateLabel">H.264 码率 (kbps, 0 = 自动)</label>
-            <input id="bitrate" type='number' min='0' max='20000' step='100' value='0' data-control='bitrate' style="margin-bottom: 8px;">
-            <button id="allowLimitedSurfaceBtn" type="button" class="btn btn-action" style="width: 100%; margin-bottom: 0;">🔒 LIMITED GPU直出: 已关闭</button>
-          </div>
-
-          <p class="group-title" data-i18n="cameraControlTitle">相机控制</p>
-
-          <label for="captureApiSelect"><span data-i18n="captureApiLabel">相机 API</span> <span class="val-badge" id="captureApiNote" style="display:none;"></span></label>
-          <select id="captureApiSelect" class="camera-select" style="margin-bottom: 12px;">
-            <option value="auto" data-i18n="captureApiAuto">自动 (Camera2 / Camera1 兜底)</option>
-            <option value="camerax" data-i18n="captureApiCamera2">Camera2 (CameraX)</option>
-            <option value="camera1" data-i18n="captureApiCamera1">Camera1 (兼容模式)</option>
-          </select>
-
-          <label for="resolutionSelect"><span data-i18n="resolutionLabel">分辨率</span> <span class='val-badge' id='resolutionVal'>&mdash;</span></label>
-          <select id="resolutionSelect" style="margin-bottom: 20px" onchange='setResolution(this.value)'></select>
-
-          <label for="zoom"><span data-i18n="zoomLabel">变焦</span> <span class='val-badge' id='zoomVal'>1.0x</span></label>
-          <input id="zoom" type='range' min='0.1' max='8.0' step='0.1' value='1.0' data-control='zoom'
-            data-badge='zoomVal' data-fmt='suffix' data-suffix='x'>
-
-          <label for="exposure"><span data-i18n="exposureLabel">曝光补偿</span> <span class='val-badge' id='exposureVal'>0</span></label>
-          <input id="exposure" type='range' min='-10' max='10' step='1' value='0' data-control='exposure'
-            data-badge='exposureVal'>
-
-          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <div style="flex: 1;">
-              <label for="isoSelect" data-i18n="isoLabel">感光度 (ISO)</label>
-              <select id="isoSelect" class="camera-select" style="margin-bottom: 0;" onchange="sendControl('iso', this.value)">
-                <option value="0" data-i18n="autoOpt">自动 (Auto)</option>
-                <option value="100">100</option>
-                <option value="200">200</option>
-                <option value="400">400</option>
-                <option value="800">800</option>
-                <option value="1600">1600</option>
-                <option value="3200">3200</option>
+          <!-- 2. 相机曝光与对焦 -->
+          <details class="ctrl-accordion">
+            <summary><span data-i18n="cameraControlTitle">📷 相机曝光与对焦</span></summary>
+            <div class="ctrl-acc-body">
+              <label for="captureApiSelect"><span data-i18n="captureApiLabel">相机 API</span> <span class="val-badge" id="captureApiNote" style="display:none;"></span></label>
+              <select id="captureApiSelect" class="camera-select" style="margin-bottom: 12px;">
+                <option value="auto" data-i18n="captureApiAuto">自动 (Camera2 / Camera1 兜底)</option>
+                <option value="camerax" data-i18n="captureApiCamera2">Camera2 (CameraX)</option>
+                <option value="camera1" data-i18n="captureApiCamera1">Camera1 (兼容模式)</option>
               </select>
+
+              <label for="resolutionSelect"><span data-i18n="resolutionLabel">分辨率</span> <span class='val-badge' id='resolutionVal'>&mdash;</span></label>
+              <select id="resolutionSelect" style="margin-bottom: 16px" onchange='setResolution(this.value)'></select>
+
+              <label for="zoom"><span data-i18n="zoomLabel">变焦</span> <span class='val-badge' id='zoomVal'>1.0x</span></label>
+              <input id="zoom" type='range' min='0.1' max='8.0' step='0.1' value='1.0' data-control='zoom'
+                data-badge='zoomVal' data-fmt='suffix' data-suffix='x'>
+
+              <label for="exposure"><span data-i18n="exposureLabel">曝光补偿</span> <span class='val-badge' id='exposureVal'>0</span></label>
+              <input id="exposure" type='range' min='-10' max='10' step='1' value='0' data-control='exposure'
+                data-badge='exposureVal'>
+
+              <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <div style="flex: 1;">
+                  <label for="isoSelect" data-i18n="isoLabel">感光度 (ISO)</label>
+                  <select id="isoSelect" class="camera-select" style="margin-bottom: 0;" onchange="sendControl('iso', this.value)">
+                    <option value="0" data-i18n="autoOpt">自动 (Auto)</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                    <option value="400">400</option>
+                    <option value="800">800</option>
+                    <option value="1600">1600</option>
+                    <option value="3200">3200</option>
+                  </select>
+                </div>
+                <div style="flex: 1;">
+                  <label for="shutterSelect" data-i18n="shutterLabel">快门速度</label>
+                  <select id="shutterSelect" class="camera-select" style="margin-bottom: 0;" onchange="sendControl('shutter_ns', this.value)">
+                    <option value="0" data-i18n="autoOpt">自动 (Auto)</option>
+                    <option value="500000">1/2000s</option>
+                    <option value="1000000">1/1000s</option>
+                    <option value="2000000">1/500s</option>
+                    <option value="4000000">1/250s</option>
+                    <option value="8000000">1/125s</option>
+                    <option value="16666667">1/60s</option>
+                    <option value="33333333">1/30s</option>
+                  </select>
+                </div>
+              </div>
+
+              <label for="focusDistance"><span data-i18n="focusLabel">对焦距离</span> <span class='val-badge' id='focusVal'>Auto</span></label>
+              <input id="focusDistance" type='range' min='-0.05' max='1.0' step='0.05' value='-1'
+                data-control='focus_distance' data-badge='focusVal' data-fmt='focus' style="margin-bottom: 0;">
             </div>
-            <div style="flex: 1;">
-              <label for="shutterSelect" data-i18n="shutterLabel">快门速度</label>
-              <select id="shutterSelect" class="camera-select" style="margin-bottom: 0;" onchange="sendControl('shutter_ns', this.value)">
-                <option value="0" data-i18n="autoOpt">自动 (Auto)</option>
-                <option value="500000">1/2000s</option>
-                <option value="1000000">1/1000s</option>
-                <option value="2000000">1/500s</option>
-                <option value="4000000">1/250s</option>
-                <option value="8000000">1/125s</option>
-                <option value="16666667">1/60s</option>
-                <option value="33333333">1/30s</option>
+          </details>
+
+          <!-- 3. 画面旋转与图像后处理 -->
+          <details class="ctrl-accordion">
+            <summary><span data-i18n="postProcTitle">🎨 画面旋转与图像后处理</span></summary>
+            <div class="ctrl-acc-body">
+              <div style="margin-bottom: 12px">
+                <label for="rotate"><span data-i18n="rotateLabel">画面旋转</span> <span class='val-badge' id='rotateVal'>0°</span></label>
+                <input id="rotate" type="range" min="0" max="359" step="1" value="0" data-control="rotate"
+                  data-badge="rotateVal" data-fmt="suffix" data-suffix="°" style="margin-bottom: 8px;">
+                <div style="display:flex;gap:8px;margin-bottom:8px;width:100%;">
+                  <button class="btn" style="flex:1;min-width:0;" data-control="rotate" data-value="0" data-badge="rotateVal">0°</button>
+                  <button class="btn" style="flex:1;min-width:0;" data-control="rotate" data-value="90" data-badge="rotateVal">90°</button>
+                  <button class="btn" style="flex:1;min-width:0;" data-control="rotate" data-value="180" data-badge="rotateVal">180°</button>
+                  <button class="btn" style="flex:1;min-width:0;" data-control="rotate" data-value="270" data-badge="rotateVal">270°</button>
+                </div>
+              </div>
+
+              <label style="margin-bottom: 10px; display: block;">
+                <input type="checkbox" id="mirrorCheckbox" onchange="sendControl('mirror', this.checked ? 'true' : 'false')" style="margin:0;vertical-align:middle;">
+                <span style="vertical-align:middle;" data-i18n="mirrorLabel">镜像翻转</span>
+              </label>
+
+              <label for="scale"><span data-i18n="scaleLabel">缩放</span> <span class='val-badge' id='scaleVal'>1.0x</span></label>
+              <input id="scale" type='range' min='0.5' max='2.0' step='0.1' value='1.0' data-control='scale'
+                data-badge='scaleVal' data-fmt='suffix' data-suffix='x' data-setview='original'>
+
+              <label for="contrast"><span data-i18n="contrastLabel">对比度</span> <span class='val-badge' id='contVal'>0</span></label>
+              <input id="contrast" type='range' min='-50' max='50' step='10' value='0' data-control='contrast'
+                data-badge='contVal'>
+
+              <label for="fps" data-i18n="fpsLabel">帧率 (fps)</label>
+              <input id="fps" type='number' min='1' max='60' value='30' data-control='fps' style="margin-bottom: 0;">
+            </div>
+          </details>
+
+          <!-- 4. 抓拍与 24h 循环录像 -->
+          <details class="ctrl-accordion">
+            <summary><span data-i18n="snapshotTitle">📸 抓拍与 24h 循环录像</span></summary>
+            <div class="ctrl-acc-body">
+              <label for="snapshotRes" data-i18n="snapshotResLabel">抓拍分辨率</label>
+              <select id="snapshotRes" style="margin-bottom: 12px" data-control="snapshot_res">
+                <option value="stream" data-i18n="snapMatchStream">跟随视频流（快速）</option>
+                <option value="max" data-i18n="snapMax">最高画质（传感器全分辨率）</option>
               </select>
+              <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <button id="recordToggleBtn" class="btn btn-action" style="flex:1 1 0; min-width:0; margin-bottom:0;" onclick="toggleRecording()" data-i18n="btnRecord">🔴 录像</button>
+                <button id="snapBtn" class="btn btn-action" style="flex:1 1 0; min-width:0; margin-bottom:0;" onclick="takeSnapshot()" data-i18n="btnSnap">📸 抓拍</button>
+              </div>
+              <div style="display:flex; justify-content:flex-end; align-items:center; gap:4px; margin-bottom:12px;">
+                <label style="margin:0; font-size:13px; color:#ccc; cursor:pointer;" title="延时抓拍（秒，0 为立即）" data-i18n-title="timerTitle">⏱️</label>
+                <input type="number" id="timerInput" min="0" max="300" step="1" value="0"
+                  style="width:50px; padding:4px 6px; font-size:13px; text-align:center; background:#333; color:#fff; border:1px solid #555; border-radius:4px; margin:0;">
+              </div>
+
+              <div style="border-top: 1px solid #283244; padding-top: 10px;">
+                <button id="loopRecToggleBtn" type="button" class="btn btn-action" style="width:100%; margin-bottom:8px;">🔄 24h 循环录像: 已关闭</button>
+                <div style="display:flex; gap:8px; margin-bottom:6px;">
+                  <div style="flex:1 1 0; min-width:0;">
+                    <label for="loopSegMinutes" data-i18n="loopSegLabel">分段时长(分)</label>
+                    <select id="loopSegMinutes" class="camera-select" style="margin-bottom:0;">
+                      <option value="1" data-i18n="min1">1 分钟</option>
+                      <option value="3" data-i18n="min3">3 分钟</option>
+                      <option value="5" selected data-i18n="min5">5 分钟</option>
+                      <option value="10" data-i18n="min10">10 分钟</option>
+                      <option value="15" data-i18n="min15">15 分钟</option>
+                      <option value="30" data-i18n="min30">30 分钟</option>
+                    </select>
+                  </div>
+                  <div style="flex:1 1 0; min-width:0;">
+                    <label for="loopMaxStorageGb" data-i18n="loopMaxGbLabel">容量上限(GB)</label>
+                    <input id="loopMaxStorageGb" type="number" min="1" max="128" step="1" value="4" style="margin-bottom:0;">
+                  </div>
+                </div>
+                <div id="loopRecMeta" style="font-size:12px; color:#94a3b8; margin-bottom:0;">已录分段: -- · 已用: -- MB</div>
+              </div>
             </div>
-          </div>
+          </details>
 
-          <label for="focusDistance"><span data-i18n="focusLabel">对焦距离</span> <span class='val-badge' id='focusVal'>Auto</span></label>
-          <input id="focusDistance" type='range' min='-0.05' max='1.0' step='0.05' value='-1'
-            data-control='focus_distance' data-badge='focusVal' data-fmt='focus'>
-
-          <div style="margin-bottom: 12px">
-            <label for="rotate"><span data-i18n="rotateLabel">画面旋转</span> <span class='val-badge' id='rotateVal'>0°</span></label>
-            <input id="rotate" type="range" min="0" max="359" step="1" value="0" data-control="rotate"
-              data-badge="rotateVal" data-fmt="suffix" data-suffix="°" style="margin-bottom: 8px;">
-            <div style="display:flex;gap:8px;margin-bottom:8px;width:100%;">
-              <button class="btn" style="flex:1;min-width:0;" data-control="rotate" data-value="0" data-badge="rotateVal">0°</button>
-              <button class="btn" style="flex:1;min-width:0;" data-control="rotate" data-value="90" data-badge="rotateVal">90°</button>
-              <button class="btn" style="flex:1;min-width:0;" data-control="rotate" data-value="180" data-badge="rotateVal">180°</button>
-              <button class="btn" style="flex:1;min-width:0;" data-control="rotate" data-value="270" data-badge="rotateVal">270°</button>
-            </div>
-          </div>
-
-          <label>
-            <input type="checkbox" id="mirrorCheckbox" onchange="sendControl('mirror', this.checked ? 'true' : 'false')" style="margin:0;vertical-align:middle;">
-            <span style="vertical-align:middle;" data-i18n="mirrorLabel">镜像翻转</span>
-          </label>
-
-          <p class="group-title" data-i18n="postProcTitle">图像后处理</p>
-
-          <label for="scale"><span data-i18n="scaleLabel">缩放</span> <span class='val-badge' id='scaleVal'>1.0x</span></label>
-          <input id="scale" type='range' min='0.5' max='2.0' step='0.1' value='1.0' data-control='scale'
-            data-badge='scaleVal' data-fmt='suffix' data-suffix='x' data-setview='original'>
-
-          <label for="contrast"><span data-i18n="contrastLabel">对比度</span> <span class='val-badge' id='contVal'>0</span></label>
-          <input id="contrast" type='range' min='-50' max='50' step='10' value='0' data-control='contrast'
-            data-badge='contVal'>
-
-          <label for="fps" data-i18n="fpsLabel">帧率 (fps)</label>
-          <input id="fps" type='number' min='1' max='60' value='30' data-control='fps'>
-
-          <div style="margin-top:12px;">
-            <button id="resetDefaultsBtn" class="btn" style="width:100%;" data-i18n="resetDefaults">恢复默认设置</button>
-          </div>
-
+          <!-- 5. 移动侦测 (ONVIF) -->
           <div id="motionSettings" style="display:none;">
-            <p class="group-title" data-i18n="motionTitle">移动侦测</p>
+            <details class="ctrl-accordion">
+              <summary><span data-i18n="motionTitle">🚨 移动侦测 (ONVIF)</span></summary>
+              <div class="ctrl-acc-body">
+                <label>
+                  <input type="checkbox" id="motionCheckbox" onchange="sendControl('motion_detection_enabled', this.checked ? 'true' : 'false')" style="margin:0;vertical-align:middle;">
+                  <span style="vertical-align:middle;" data-i18n="enableMotion">启用移动侦测</span>
+                </label>
+                <div class="hint" style="margin:-2px 0 12px; font-size:12px; color:#ccc" data-i18n="motionHint">
+                  保持相机运行并向 ONVIF 客户端（Home Assistant、UniFi Protect）上报动态事件。
+                </div>
 
-            <label>
-              <input type="checkbox" id="motionCheckbox" onchange="sendControl('motion_detection_enabled', this.checked ? 'true' : 'false')" style="margin:0;vertical-align:middle;">
-              <span style="vertical-align:middle;" data-i18n="enableMotion">启用移动侦测</span>
-            </label>
-            <div class="hint" style="margin:-2px 0 12px; font-size:12px; color:#ccc" data-i18n="motionHint">
-              保持相机运行并向 ONVIF 客户端（Home Assistant、UniFi Protect）上报动态事件。
+                <label for="motionSensitivity"><span data-i18n="motionSensLabel">灵敏度</span> <span class='val-badge' id='motionSensitivityVal'>5</span></label>
+                <input id="motionSensitivity" type='range' min='1' max='10' step='1' value='5' data-control='motion_sensitivity' data-badge='motionSensitivityVal' style='margin-bottom: 0'>
+              </div>
+            </details>
+          </div>
+
+          <!-- 6. 系统与重置 -->
+          <details class="ctrl-accordion" style="margin-bottom: 0;">
+            <summary><span>⚙️ 系统与恢复默认</span></summary>
+            <div class="ctrl-acc-body">
+              <button id="resetDefaultsBtn" class="btn" style="width:100%; margin-bottom:0;" data-i18n="resetDefaults">恢复默认设置</button>
             </div>
-
-            <label for="motionSensitivity"><span data-i18n="motionSensLabel">灵敏度</span> <span class='val-badge' id='motionSensitivityVal'>5</span></label>
-            <input id="motionSensitivity" type='range' min='1' max='10' step='1' value='5' data-control='motion_sensitivity' data-badge='motionSensitivityVal' style='margin-bottom: 0'>
-          </div>
-
-          <p class="group-title" data-i18n="snapshotTitle">抓拍与录像</p>
-
-          <label for="snapshotRes" data-i18n="snapshotResLabel">抓拍分辨率</label>
-          <select id="snapshotRes" style="margin-bottom: 12px" data-control="snapshot_res">
-            <option value="stream" data-i18n="snapMatchStream">跟随视频流（快速）</option>
-            <option value="max" data-i18n="snapMax">最高画质（传感器全分辨率）</option>
-          </select>
-          <div style="display:flex; gap:8px; margin-bottom:8px;">
-            <button id="recordToggleBtn" class="btn btn-action" style="flex:1 1 0; min-width:0; margin-bottom:0;" onclick="toggleRecording()" data-i18n="btnRecord">🔴 录像</button>
-            <button id="snapBtn" class="btn btn-action" style="flex:1 1 0; min-width:0; margin-bottom:0;" onclick="takeSnapshot()" data-i18n="btnSnap">📸 抓拍</button>
-          </div>
-          <div style="display:flex; justify-content:flex-end; align-items:center; gap:4px; margin-bottom:8px;">
-            <label style="margin:0; font-size:13px; color:#ccc; cursor:pointer;" title="延时抓拍（秒，0 为立即）" data-i18n-title="timerTitle">⏱️</label>
-            <input type="number" id="timerInput" min="0" max="300" step="1" value="0"
-              style="width:50px; padding:4px 6px; font-size:13px; text-align:center; background:#333; color:#fff; border:1px solid #555; border-radius:4px; margin:0;">
-          </div>
-
-          <p class="group-title" data-i18n="loopTitle">24h 循环录像</p>
-          <button id="loopRecToggleBtn" type="button" class="btn btn-action" style="width:100%; margin-bottom:8px;">🔄 24h 循环录像: 已关闭</button>
-          <div style="display:flex; gap:8px; margin-bottom:6px;">
-            <div style="flex:1 1 0; min-width:0;">
-              <label for="loopSegMinutes" data-i18n="loopSegLabel">分段时长(分)</label>
-              <select id="loopSegMinutes" class="camera-select" style="margin-bottom:0;">
-                <option value="1" data-i18n="min1">1 分钟</option>
-                <option value="3" data-i18n="min3">3 分钟</option>
-                <option value="5" selected data-i18n="min5">5 分钟</option>
-                <option value="10" data-i18n="min10">10 分钟</option>
-                <option value="15" data-i18n="min15">15 分钟</option>
-                <option value="30" data-i18n="min30">30 分钟</option>
-              </select>
-            </div>
-            <div style="flex:1 1 0; min-width:0;">
-              <label for="loopMaxStorageGb" data-i18n="loopMaxGbLabel">容量上限(GB)</label>
-              <input id="loopMaxStorageGb" type="number" min="1" max="128" step="1" value="4" style="margin-bottom:0;">
-            </div>
-          </div>
-          <div id="loopRecMeta" style="font-size:12px; color:#94a3b8; margin-bottom:4px;">已录分段: -- · 已用: -- MB</div>
+          </details>
         </div>
 
         <p class="notice" data-i18n="restartNotice">部分设置修改后会短暂重启相机。</p>
@@ -943,8 +1155,38 @@
             <span id="playbackClockText" style="font-family:monospace;font-size:14px;font-weight:700;color:#38bdf8;margin-left:4px;">--:--:--</span>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <span style="font-size:11px;color:#94a3b8;" data-i18n="tlZoomLabel">时间轨缩放:</span>
-            <button id="tlZoomAll" type="button" class="btn active" style="margin:0;padding:3px 8px;font-size:11px;" data-i18n="tlZoomAll">全部</button>
+            <span style="font-size:11px;color:#94a3b8;" data-i18n="pbDateLabel">日期:</span>
+            <button id="pbPrevDayBtn" type="button" class="btn" style="margin:0;padding:3px 7px;font-size:11px;" title="前一天">◀</button>
+            <div class="pb-cal-wrap" id="pbCalWrap">
+              <button id="pbDateBtn" type="button" class="btn" style="margin:0;padding:3px 9px;font-size:11px;display:inline-flex;align-items:center;gap:5px;">
+                <span>📅</span>
+                <span id="pbDateBtnText">--</span>
+                <span style="font-size:9px;opacity:0.75;">▾</span>
+              </button>
+              <div id="pbCalendarPopup" class="pb-cal-popup" style="display:none;">
+                <div class="pb-cal-header">
+                  <button id="pbCalPrevMonth" type="button" class="btn" style="margin:0;padding:2px 7px;font-size:11px;">◀</button>
+                  <span id="pbCalMonthLabel" style="font-size:12px;font-weight:700;color:#f1f5f9;"></span>
+                  <button id="pbCalNextMonth" type="button" class="btn" style="margin:0;padding:2px 7px;font-size:11px;">▶</button>
+                </div>
+                <div class="pb-cal-weekdays">
+                  <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                </div>
+                <div id="pbCalGrid" class="pb-cal-grid"></div>
+                <div class="pb-cal-footer">
+                  <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#94a3b8;">
+                    <span class="pb-cal-dot" style="position:static;"></span>
+                    <span data-i18n="pbCalHasRec">有录像</span>
+                  </span>
+                  <button id="pbCalTodayBtn" type="button" class="btn" style="margin:0;padding:2px 8px;font-size:10px;" data-i18n="pbCalToday">今天</button>
+                </div>
+              </div>
+            </div>
+            <button id="pbNextDayBtn" type="button" class="btn" style="margin:0;padding:3px 7px;font-size:11px;" title="后一天">▶</button>
+            <span style="font-size:11px;color:#94a3b8;margin-left:4px;" data-i18n="tlZoomLabel">时间轨缩放:</span>
+            <button id="tlZoomAll" type="button" class="btn active" style="margin:0;padding:3px 8px;font-size:11px;" data-i18n="tlZoomAll">24小时</button>
+            <button id="tlZoomAm" type="button" class="btn" style="margin:0;padding:3px 8px;font-size:11px;" data-i18n="tlZoomAm">上午</button>
+            <button id="tlZoomPm" type="button" class="btn" style="margin:0;padding:3px 8px;font-size:11px;" data-i18n="tlZoomPm">下午</button>
             <button id="tlZoom1h" type="button" class="btn" style="margin:0;padding:3px 8px;font-size:11px;" data-i18n="tlZoom1h">1小时</button>
             <button id="tlZoom15m" type="button" class="btn" style="margin:0;padding:3px 8px;font-size:11px;" data-i18n="tlZoom15m">15分钟</button>
             <a id="playbackDownloadLink" href="#" target="_blank" class="btn" style="display:none;margin:0;padding:3px 9px;font-size:11px;" data-i18n="pbDownload">下载当前段</a>
@@ -1016,28 +1258,39 @@
 
   <div id="manageView" style="display:none;flex:1;min-height:0;gap:14px;padding:14px;overflow:auto;flex-wrap:wrap;align-items:stretch;">
     <div style="flex:1 1 420px;min-width:300px;background:#161b26;border:1px solid #283244;border-radius:8px;padding:12px;display:flex;flex-direction:column;min-height:420px;max-height:calc(100vh - 96px);">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
         <div>
           <h3 style="margin:0;font-size:15px;color:#e2e8f0;">📼 录像文件管理</h3>
           <div id="mgrVideoStats" style="font-size:12px;color:#94a3b8;margin-top:2px;">加载中...</div>
         </div>
-        <button id="mgrVideoRefreshBtn" type="button" class="btn" style="margin:0;padding:4px 10px;">↻ 刷新</button>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button id="mgrVideoDelSelectedBtn" type="button" class="btn" disabled style="margin:0;padding:4px 10px;background:#7f1d1d;border-color:#b91c1c;color:#fecaca;opacity:0.5;">🗑 删除选中</button>
+          <button id="mgrVideoRefreshBtn" type="button" class="btn" style="margin:0;padding:4px 10px;">↻ 刷新</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:4px 6px 8px;border-bottom:1px solid #1e293b;margin-bottom:8px;font-size:12px;color:#cbd5e1;">
+        <label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;">
+          <input type="checkbox" id="mgrVideoSelectAll" style="width:auto;margin:0;">
+          <span>全选</span>
+        </label>
+        <span id="mgrVideoSelectedCount" style="color:#94a3b8;">已选 0 项</span>
       </div>
       <div id="mgrVideoList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
     </div>
 
     <div style="flex:1.4 1 520px;min-width:320px;background:#161b26;border:1px solid #283244;border-radius:8px;padding:12px;display:flex;flex-direction:column;min-height:420px;max-height:calc(100vh - 96px);">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
         <div>
           <h3 style="margin:0;font-size:15px;color:#e2e8f0;">🚗 车牌过车记录管理</h3>
           <div id="mgrEventStats" style="font-size:12px;color:#94a3b8;margin-top:2px;">加载中...</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           <button id="mgrExportCsvBtn" type="button" class="btn btn-action" style="margin:0;padding:4px 10px;width:auto;">⬇ 导出 CSV</button>
+          <button id="mgrEventDelSelectedBtn" type="button" class="btn" disabled style="margin:0;padding:4px 10px;background:#7f1d1d;border-color:#b91c1c;color:#fecaca;opacity:0.5;">🗑 删除选中</button>
           <button id="mgrClearEventsBtn" type="button" class="btn" style="margin:0;padding:4px 10px;background:#7f1d1d;border-color:#b91c1c;color:#fecaca;">🗑 清空记录</button>
         </div>
       </div>
-      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+      <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
         <input id="mgrEventSearch" type="text" placeholder="搜索车牌号..." style="flex:1;min-width:140px;margin:0;padding:6px 10px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;">
         <select id="mgrEventType" class="camera-select" style="width:auto;margin:0;padding:6px 8px;">
           <option value="-1">全部类型</option>
@@ -1046,6 +1299,13 @@
           <option value="1">黄牌</option>
         </select>
         <button id="mgrEventRefreshBtn" type="button" class="btn" style="margin:0;padding:6px 12px;">查询</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:4px 6px 8px;border-bottom:1px solid #1e293b;margin-bottom:8px;font-size:12px;color:#cbd5e1;">
+        <label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;">
+          <input type="checkbox" id="mgrEventSelectAll" style="width:auto;margin:0;">
+          <span>全选</span>
+        </label>
+        <span id="mgrEventSelectedCount" style="color:#94a3b8;">已选 0 项</span>
       </div>
       <div id="mgrEventList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
     </div>
@@ -1084,7 +1344,7 @@
         alprCaptureModePeak: '峰值防过曝保护 (高光自动降 EV)',
         alprCaptureModeAePeak: '区域测光 + 峰值防过曝',
         alprSkipFastShutter: '快门 ≥ 1/250s 时无需进入抓拍模式',
-        alprHeadlightCapture: '车灯高亮抓拍 (仅局部亮度剧变进入抓拍模式)',
+        alprHeadlightCapture: '运动强光抓拍 (检测到移动强光进入抓拍模式)',
         alprHeadlightDiff: '车灯亮度跳变阈值',
         alprHeadlightMinRatio: '高亮区最小占比',
         alprHeadlightMaxRatio: '高亮区最大占比 (防全屏突变)',
@@ -1177,8 +1437,13 @@
         restartNotice: '部分设置修改后会短暂重启相机。',
         pbPlay: '▶ 播放',
         pbPause: '⏸ 暂停',
+        pbDateLabel: '日期:',
+        pbCalHasRec: '有录像',
+        pbCalToday: '今天',
         tlZoomLabel: '时间轨缩放:',
-        tlZoomAll: '全部',
+        tlZoomAll: '24小时',
+        tlZoomAm: '上午',
+        tlZoomPm: '下午',
         tlZoom1h: '1小时',
         tlZoom15m: '15分钟',
         pbDownload: '下载当前段',
@@ -1324,8 +1589,13 @@
         restartNotice: 'Some changes will momentarily restart the camera.',
         pbPlay: '▶ Play',
         pbPause: '⏸ Pause',
+        pbDateLabel: 'Date:',
+        pbCalHasRec: 'Has Video',
+        pbCalToday: 'Today',
         tlZoomLabel: 'Timeline Zoom:',
-        tlZoomAll: 'All',
+        tlZoomAll: '24h',
+        tlZoomAm: 'AM',
+        tlZoomPm: 'PM',
         tlZoom1h: '1h',
         tlZoom15m: '15m',
         pbDownload: 'Download MP4',
@@ -2979,7 +3249,7 @@
     };
     const DEFAULT_PLATE_STYLE = { label: '未知类型', bg: '#1e293b', border: '#38bdf8', title: '#38bdf8', text: '#ffffff', meta: '#cbd5e1', badgeBg: 'rgba(255,255,255,0.16)', badgeText: '#e2e8f0' };
 
-    function renderPlateOverlay(plates, frameW, frameH, motionDebug) {
+    function renderPlateOverlay(plates, frameW, frameH, motionDebug, vehicles, vehicleFilterStatus, vehicleDetectMs) {
       const overlay = getElById('alprOverlayCanvas');
       if (!overlay) return;
       const ctx = overlay.getContext('2d');
@@ -3022,6 +3292,27 @@
           ctx.lineWidth = 2.5;
           ctx.strokeRect(px, py, pw, ph);
         }
+        if (motionDebug.glareX2 > motionDebug.glareX1 && motionDebug.glareY2 > motionDebug.glareY1) {
+          const gx = lastVideoRect.dx + motionDebug.glareX1 * lastVideoRect.dw;
+          const gy = lastVideoRect.dy + motionDebug.glareY1 * lastVideoRect.dh;
+          const gw = (motionDebug.glareX2 - motionDebug.glareX1) * lastVideoRect.dw;
+          const gh = (motionDebug.glareY2 - motionDebug.glareY1) * lastVideoRect.dh;
+          ctx.setLineDash([5, 3]);
+          ctx.strokeStyle = 'rgba(250, 204, 21, 0.98)';
+          ctx.lineWidth = 2.5;
+          ctx.strokeRect(gx, gy, gw, gh);
+          ctx.fillStyle = 'rgba(250, 204, 21, 0.18)';
+          ctx.fillRect(gx, gy, gw, gh);
+          ctx.setLineDash([]);
+          ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
+          const gText = '强光';
+          const gW = ctx.measureText(gText).width + 8;
+          ctx.fillStyle = 'rgba(250, 204, 21, 0.92)';
+          ctx.fillRect(gx, Math.max(lastVideoRect.dy, gy - 16), gW, 16);
+          ctx.fillStyle = '#0f172a';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(gText, gx + 4, Math.max(lastVideoRect.dy + 8, gy - 8));
+        }
         let statusText = '';
         let statusBg = 'rgba(15, 23, 42, 0.78)';
         if (motionDebug.motionCropActive) {
@@ -3037,6 +3328,10 @@
           statusText += ' · 车灯抓拍中';
           statusBg = 'rgba(5, 150, 105, 0.88)';
         }
+        if (vehicleFilterStatus && vehicleFilterStatus !== 'off') {
+          statusText += ` · ${vehicleFilterStatus}`;
+          if (vehicleDetectMs > 0) statusText += ` (${vehicleDetectMs}ms)`;
+        }
         ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, sans-serif';
         const tw = ctx.measureText(statusText).width + 12;
         const sx = lastVideoRect.dx + 8;
@@ -3046,6 +3341,29 @@
         ctx.fillStyle = '#f8fafc';
         ctx.textBaseline = 'middle';
         ctx.fillText(statusText, sx + 6, sy + 10);
+        ctx.restore();
+      }
+      if (vehicles && vehicles.length && lastVideoRect) {
+        ctx.save();
+        for (const v of vehicles) {
+          const vx = lastVideoRect.dx + v.x1 * lastVideoRect.dw;
+          const vy = lastVideoRect.dy + v.y1 * lastVideoRect.dh;
+          const vw = (v.x2 - v.x1) * lastVideoRect.dw;
+          const vh = (v.y2 - v.y1) * lastVideoRect.dh;
+          if (vw <= 2 || vh <= 2) continue;
+          ctx.strokeStyle = 'rgba(245, 158, 11, 0.95)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 4]);
+          ctx.strokeRect(vx, vy, vw, vh);
+          const vLabel = `${v.label || 'car'} ${Math.round((v.confidence || 0) * 100)}%`;
+          ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
+          const lW = ctx.measureText(vLabel).width + 8;
+          ctx.fillStyle = 'rgba(245, 158, 11, 0.9)';
+          ctx.fillRect(vx, Math.max(lastVideoRect.dy, vy - 16), lW, 16);
+          ctx.fillStyle = '#0f172a';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(vLabel, vx + 4, Math.max(lastVideoRect.dy + 8, vy - 8));
+        }
         ctx.restore();
       }
       if (!plates || !plates.length || !lastVideoRect || !frameW || !frameH) return;
@@ -3137,7 +3455,15 @@
         .then(r => r.json())
         .then(data => {
           updateStatusOverlay(data);
-          renderPlateOverlay(data.plates || [], data.frameWidth || 0, data.frameHeight || 0, data.motionDebug || null);
+          renderPlateOverlay(
+            data.plates || [],
+            data.frameWidth || 0,
+            data.frameHeight || 0,
+            data.motionDebug || null,
+            data.vehicles || [],
+            data.vehicleFilterStatus || '',
+            data.vehicleDetectMs || 0
+          );
           const latencyEl = getElById('alpr-latency');
           if (latencyEl && data.processTimeMs > 0) {
             latencyEl.innerText = `${data.processTimeMs}ms`;
@@ -3195,8 +3521,20 @@
       const intervalMsEl = getElById('alprIntervalMs');
       const intervalMsValEl = getElById('alprIntervalMsVal');
       const motionGateEl = getElById('alprMotionGate');
+      const vehicleFilterModeEl = getElById('alprVehicleFilterMode');
+      const vehicleTfliteBoxEl = getElById('alpr-vehicle-tflite-box');
+      const vehicleModelEl = getElById('alprVehicleModel');
+      const vehicleModelFileEl = getElById('alprVehicleModelFile');
+      const vehicleModelUploadBtn = getElById('alprVehicleModelUploadBtn');
+      const vehicleModelDelBtn = getElById('alprVehicleModelDelBtn');
+      const vehicleModelMsgEl = getElById('alprVehicleModelMsg');
+      const vehicleConfEl = getElById('alprVehicleConf');
+      const vehicleConfValEl = getElById('alprVehicleConfVal');
+      const vehicleCropEl = getElById('alprVehicleCrop');
       const motionCropEl = getElById('alprMotionCrop');
       const motionTorchEl = getElById('alprMotionTorch');
+      const torchTriggerRowEl = getElById('alpr-torch-trigger-row');
+      const motionTorchTriggerModeEl = getElById('alprMotionTorchTriggerMode');
       const flashCaptureBtn = getElById('alpr-flash-capture-btn');
       const headlightBtn = getElById('alpr-headlight-btn');
       const flashCaptureModeEl = getElById('alprFlashCaptureMode');
@@ -3271,6 +3609,9 @@
         if (headlightMaxValEl && headlightMaxEl) headlightMaxValEl.innerText = `${Math.round(Number(headlightMaxEl.value) * 100)}%`;
         if (headlightBoxEl && headlightCaptureEl) headlightBoxEl.style.display = headlightCaptureEl.checked ? 'block' : 'none';
         if (flashManualRowEl && flashCaptureModeEl) flashManualRowEl.style.display = flashCaptureModeEl.value === 'manual' ? 'flex' : 'none';
+        if (vehicleTfliteBoxEl && vehicleFilterModeEl) vehicleTfliteBoxEl.style.display = vehicleFilterModeEl.value === 'tflite' ? 'block' : 'none';
+        if (torchTriggerRowEl && motionTorchEl) torchTriggerRowEl.style.display = motionTorchEl.checked ? 'block' : 'none';
+        if (vehicleConfValEl && vehicleConfEl) vehicleConfValEl.innerText = Number(vehicleConfEl.value).toFixed(2);
         if (roiBoxEl && roiEnabledEl) roiBoxEl.style.display = roiEnabledEl.checked ? 'block' : 'none';
         window.alprRoiState = {
           enabled: Boolean(roiEnabledEl && roiEnabledEl.checked),
@@ -3283,12 +3624,90 @@
 
       [maxNumEl, boxConfEl, recConfEl, threadsEl, intervalMsEl, roiXEl, roiYEl, roiWEl, roiHEl,
        motionDiffEl, motionAreaEl, motionBgAlphaEl, motionMinCellsEl, motionPadEl, motionBackoffEl, motionTorchHoldEl,
-       torchSettleEl, globalJumpEl, headlightDiffEl, headlightMinEl, headlightMaxEl].forEach(el => {
+       torchSettleEl, globalJumpEl, headlightDiffEl, headlightMinEl, headlightMaxEl, vehicleConfEl].forEach(el => {
         if (el) el.addEventListener('input', syncBadges);
       });
       if (roiEnabledEl) roiEnabledEl.addEventListener('change', syncBadges);
       if (headlightCaptureEl) headlightCaptureEl.addEventListener('change', syncBadges);
+      let vehicleModelsCache = [];
+      function updateVehicleModelDelBtn() {
+        if (!vehicleModelDelBtn || !vehicleModelEl) return;
+        const item = vehicleModelsCache.find(m => m.name === vehicleModelEl.value);
+        vehicleModelDelBtn.style.display = (item && !item.builtin) ? 'inline-block' : 'none';
+      }
+      function refreshVehicleModels(preferName) {
+        if (!vehicleModelEl) return;
+        fetch('/api/vehicle/models', { credentials: 'include', cache: 'no-store' })
+          .then(r => r.json())
+          .then(data => {
+            const list = Array.isArray(data.models) ? data.models : [];
+            vehicleModelsCache = list;
+            const target = preferName || vehicleModelEl.value || data.current || 'vehicle_efficientdet_lite0.tflite';
+            vehicleModelEl.innerHTML = '';
+            list.forEach(m => {
+              const opt = document.createElement('option');
+              opt.value = m.name;
+              opt.textContent = m.label || m.name;
+              vehicleModelEl.appendChild(opt);
+            });
+            if (list.some(m => m.name === target)) vehicleModelEl.value = target;
+            updateVehicleModelDelBtn();
+          })
+          .catch(() => {});
+      }
+      if (vehicleModelEl) vehicleModelEl.addEventListener('change', updateVehicleModelDelBtn);
+      if (vehicleModelUploadBtn && vehicleModelFileEl) {
+        vehicleModelUploadBtn.addEventListener('click', () => vehicleModelFileEl.click());
+        vehicleModelFileEl.addEventListener('change', () => {
+          const file = vehicleModelFileEl.files && vehicleModelFileEl.files[0];
+          if (!file) return;
+          if (!file.name.toLowerCase().endsWith('.tflite')) {
+            if (vehicleModelMsgEl) vehicleModelMsgEl.textContent = '请选择 .tflite 格式模型文件';
+            return;
+          }
+          if (vehicleModelMsgEl) vehicleModelMsgEl.textContent = `正在上传 ${file.name}...`;
+          const reader = new FileReader();
+          reader.onload = () => {
+            const res = String(reader.result || '');
+            const b64 = res.includes(',') ? res.split(',')[1] : res;
+            fetch(`/api/vehicle/models/upload?name=${encodeURIComponent(file.name)}`, {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'text/plain' },
+              body: b64
+            })
+              .then(r => r.json())
+              .then(d => {
+                if (d.ok) {
+                  if (vehicleModelMsgEl) vehicleModelMsgEl.textContent = `已上传: ${d.name}，请点击「应用并重载模型」生效`;
+                  refreshVehicleModels(d.name);
+                } else {
+                  if (vehicleModelMsgEl) vehicleModelMsgEl.textContent = `上传失败: ${d.error || '未知错误'}`;
+                }
+              })
+              .catch(() => { if (vehicleModelMsgEl) vehicleModelMsgEl.textContent = '上传请求失败'; })
+              .finally(() => { vehicleModelFileEl.value = ''; });
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+      if (vehicleModelDelBtn && vehicleModelEl) {
+        vehicleModelDelBtn.addEventListener('click', () => {
+          const name = vehicleModelEl.value;
+          if (!name) return;
+          fetch(`/api/vehicle/models/delete?name=${encodeURIComponent(name)}`, { method: 'POST', credentials: 'include' })
+            .then(r => r.json())
+            .then(() => {
+              if (vehicleModelMsgEl) vehicleModelMsgEl.textContent = `已删除: ${name}`;
+              refreshVehicleModels();
+            })
+            .catch(() => {});
+        });
+      }
+
       if (flashCaptureModeEl) flashCaptureModeEl.addEventListener('change', syncBadges);
+      if (vehicleFilterModeEl) vehicleFilterModeEl.addEventListener('change', syncBadges);
+      if (motionTorchEl) motionTorchEl.addEventListener('change', syncBadges);
 
       function applyFromConfig(cfg) {
         if (!cfg || typeof cfg.detLevel === 'undefined') return;
@@ -3304,8 +3723,17 @@
         if (threadsEl) threadsEl.value = String(cfg.threads);
         if (intervalMsEl && cfg.intervalMs !== undefined) intervalMsEl.value = String(cfg.intervalMs);
         if (motionGateEl && cfg.motionGateEnabled !== undefined) motionGateEl.checked = Boolean(cfg.motionGateEnabled);
+        if (vehicleFilterModeEl && cfg.vehicleFilterMode !== undefined) vehicleFilterModeEl.value = cfg.vehicleFilterMode;
+        if (vehicleModelEl && cfg.vehicleModelName) {
+          refreshVehicleModels(cfg.vehicleModelName);
+        } else {
+          refreshVehicleModels();
+        }
+        if (vehicleConfEl && cfg.vehicleConfThreshold !== undefined) vehicleConfEl.value = Number(cfg.vehicleConfThreshold).toFixed(2);
+        if (vehicleCropEl && cfg.vehicleCropEnabled !== undefined) vehicleCropEl.checked = Boolean(cfg.vehicleCropEnabled);
         if (motionCropEl && cfg.motionCropEnabled !== undefined) motionCropEl.checked = Boolean(cfg.motionCropEnabled);
         if (motionTorchEl && cfg.motionTorchEnabled !== undefined) motionTorchEl.checked = Boolean(cfg.motionTorchEnabled);
+        if (motionTorchTriggerModeEl && cfg.motionTorchTriggerMode !== undefined) motionTorchTriggerModeEl.value = cfg.motionTorchTriggerMode;
         if (cfg.flashCaptureEnabled !== undefined) {
           flashCaptureEnabled = Boolean(cfg.flashCaptureEnabled);
           if (flashCaptureBtn) {
@@ -3397,8 +3825,13 @@
             threads: threadsEl ? threadsEl.value : '4',
             intervalMs: intervalMsEl ? intervalMsEl.value : '200',
             motionGateEnabled: motionGateEl ? String(motionGateEl.checked) : 'true',
+            vehicleFilterMode: vehicleFilterModeEl ? vehicleFilterModeEl.value : 'off',
+            vehicleModelName: vehicleModelEl ? vehicleModelEl.value : 'vehicle_efficientdet_lite0.tflite',
+            vehicleConfThreshold: vehicleConfEl ? vehicleConfEl.value : '0.35',
+            vehicleCropEnabled: vehicleCropEl ? String(vehicleCropEl.checked) : 'true',
             motionCropEnabled: motionCropEl ? String(motionCropEl.checked) : 'false',
             motionTorchEnabled: motionTorchEl ? String(motionTorchEl.checked) : 'false',
+            motionTorchTriggerMode: motionTorchTriggerModeEl ? motionTorchTriggerModeEl.value : 'motion',
             flashCaptureEnabled: String(flashCaptureEnabled),
             flashCaptureMode: flashCaptureModeEl ? flashCaptureModeEl.value : 'manual',
             flashCaptureIso: flashCaptureIsoEl ? flashCaptureIsoEl.value : '200',
@@ -3501,11 +3934,17 @@
       const mgrVideoStats = getElById('mgrVideoStats');
       const mgrVideoList = getElById('mgrVideoList');
       const mgrVideoRefreshBtn = getElById('mgrVideoRefreshBtn');
+      const mgrVideoSelectAll = getElById('mgrVideoSelectAll');
+      const mgrVideoSelectedCount = getElById('mgrVideoSelectedCount');
+      const mgrVideoDelSelectedBtn = getElById('mgrVideoDelSelectedBtn');
       const mgrEventStats = getElById('mgrEventStats');
       const mgrEventList = getElById('mgrEventList');
       const mgrEventSearch = getElById('mgrEventSearch');
       const mgrEventType = getElById('mgrEventType');
       const mgrEventRefreshBtn = getElById('mgrEventRefreshBtn');
+      const mgrEventSelectAll = getElById('mgrEventSelectAll');
+      const mgrEventSelectedCount = getElById('mgrEventSelectedCount');
+      const mgrEventDelSelectedBtn = getElById('mgrEventDelSelectedBtn');
       const mgrExportCsvBtn = getElById('mgrExportCsvBtn');
       const mgrClearEventsBtn = getElById('mgrClearEventsBtn');
       const videoWrap = getElById('playbackVideoWrap');
@@ -3545,7 +3984,20 @@
         if (e.key === 'Escape' && lightboxEl && lightboxEl.style.display === 'flex') closeImageLightbox();
       });
       const clockTextEl = getElById('playbackClockText');
+      const pbPrevDayBtn = getElById('pbPrevDayBtn');
+      const pbCalWrap = getElById('pbCalWrap');
+      const pbDateBtn = getElById('pbDateBtn');
+      const pbDateBtnText = getElById('pbDateBtnText');
+      const pbCalendarPopup = getElById('pbCalendarPopup');
+      const pbCalPrevMonth = getElById('pbCalPrevMonth');
+      const pbCalMonthLabel = getElById('pbCalMonthLabel');
+      const pbCalNextMonth = getElById('pbCalNextMonth');
+      const pbCalGrid = getElById('pbCalGrid');
+      const pbCalTodayBtn = getElById('pbCalTodayBtn');
+      const pbNextDayBtn = getElById('pbNextDayBtn');
       const tlZoomAll = getElById('tlZoomAll');
+      const tlZoomAm = getElById('tlZoomAm');
+      const tlZoomPm = getElById('tlZoomPm');
       const tlZoom1h = getElById('tlZoom1h');
       const tlZoom15m = getElById('tlZoom15m');
       const tlCanvas = getElById('playbackTimelineCanvas');
@@ -3576,7 +4028,9 @@
       let activeSlot = 0;       // 0 -> videoA, 1 -> videoB
       let preloadedSegIdx = -1;
       let playbackRate = 1;
-      let tlZoomMs = 0;         // 0 = 全部时间范围
+      let tlZoomMode = 'all';   // 'all' (24h) | 'am' (00-12) | 'pm' (12-24) | '1h' | '15m'
+      let tlZoomMs = 86_400_000;
+      let selectedDateStr = ''; // YYYY-MM-DD (local)
       let currentWallMs = 0;
       let isDraggingTl = false;
       let lastPbCardKey = null;
@@ -3624,6 +4078,28 @@
         return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
       }
 
+      function updateMgrVideoSelectionUi() {
+        const cbs = Array.from(document.querySelectorAll('.mgr-video-cb'));
+        const checked = cbs.filter(cb => cb.checked);
+        if (mgrVideoSelectedCount) mgrVideoSelectedCount.textContent = `已选 ${checked.length} 项`;
+        if (mgrVideoSelectAll) mgrVideoSelectAll.checked = cbs.length > 0 && checked.length === cbs.length;
+        if (mgrVideoDelSelectedBtn) {
+          mgrVideoDelSelectedBtn.disabled = checked.length === 0;
+          mgrVideoDelSelectedBtn.style.opacity = checked.length === 0 ? '0.5' : '1';
+        }
+      }
+
+      function updateMgrEventSelectionUi() {
+        const cbs = Array.from(document.querySelectorAll('.mgr-event-cb'));
+        const checked = cbs.filter(cb => cb.checked);
+        if (mgrEventSelectedCount) mgrEventSelectedCount.textContent = `已选 ${checked.length} 项`;
+        if (mgrEventSelectAll) mgrEventSelectAll.checked = cbs.length > 0 && checked.length === cbs.length;
+        if (mgrEventDelSelectedBtn) {
+          mgrEventDelSelectedBtn.disabled = checked.length === 0;
+          mgrEventDelSelectedBtn.style.opacity = checked.length === 0 ? '0.5' : '1';
+        }
+      }
+
       function loadManageVideos() {
         if (!mgrVideoList) return;
         mgrVideoList.innerHTML = '<div style="color:#94a3b8;padding:16px;text-align:center;">正在加载录像...</div>';
@@ -3631,20 +4107,30 @@
           .then(r => r.json())
           .then(data => {
             const files = (data.files || []).filter(f => /\.(mp4|mkv|avi)$/i.test(f.name || ''));
-            const totalBytes = files.reduce((acc, f) => acc + (f.size || 0), 0);
+            const totalBytes = files.reduce((acc, f) => acc + (f.sizeBytes ?? f.size ?? 0), 0);
             if (mgrVideoStats) mgrVideoStats.textContent = `共 ${files.length} 个录像文件 · 总大小 ${formatBytes(totalBytes)}`;
             if (!files.length) {
               mgrVideoList.innerHTML = '<div style="color:#64748b;padding:24px;text-align:center;">暂无录像文件</div>';
+              updateMgrVideoSelectionUi();
               return;
             }
             mgrVideoList.innerHTML = '';
             files.forEach(f => {
               const row = document.createElement('div');
               row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;flex-wrap:wrap;';
+
+              const cb = document.createElement('input');
+              cb.type = 'checkbox';
+              cb.className = 'mgr-video-cb';
+              cb.dataset.name = f.name;
+              cb.style.cssText = 'width:auto;margin:0;cursor:pointer;';
+              cb.addEventListener('change', updateMgrVideoSelectionUi);
+
               const left = document.createElement('div');
               left.style.cssText = 'min-width:0;flex:1;';
-              const startMs = parseStartMsFromName(f.name, f.lastModified);
-              left.innerHTML = `<div style="font-size:13px;font-weight:600;color:#e2e8f0;word-break:break-all;">${f.name}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px;">${formatTime(startMs)} · ${formatBytes(f.size || 0)}</div>`;
+              const fileBytes = f.sizeBytes ?? f.size ?? 0;
+              const startMs = parseStartMsFromName(f.name, f.lastModifiedMs ?? f.lastModified);
+              left.innerHTML = `<div style="font-size:13px;font-weight:600;color:#e2e8f0;word-break:break-all;">${f.name}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px;">${formatTime(startMs)} · ${formatBytes(fileBytes)}</div>`;
               const actions = document.createElement('div');
               actions.style.cssText = 'display:flex;gap:6px;align-items:center;';
 
@@ -3684,13 +4170,16 @@
               actions.appendChild(playBtn);
               actions.appendChild(dlLink);
               actions.appendChild(delBtn);
+              row.appendChild(cb);
               row.appendChild(left);
               row.appendChild(actions);
               mgrVideoList.appendChild(row);
             });
+            updateMgrVideoSelectionUi();
           })
           .catch(() => {
             mgrVideoList.innerHTML = '<div style="color:#f87171;padding:24px;text-align:center;">加载录像失败</div>';
+            updateMgrVideoSelectionUi();
           });
       }
 
@@ -3712,12 +4201,20 @@
             if (mgrEventStats) mgrEventStats.textContent = `当前显示 ${events.length} 条记录`;
             if (!events.length) {
               mgrEventList.innerHTML = '<div style="color:#64748b;padding:24px;text-align:center;">暂无匹配的过车记录</div>';
+              updateMgrEventSelectionUi();
               return;
             }
             mgrEventList.innerHTML = '';
             events.forEach(ev => {
               const row = document.createElement('div');
               row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;flex-wrap:wrap;';
+
+              const cb = document.createElement('input');
+              cb.type = 'checkbox';
+              cb.className = 'mgr-event-cb';
+              cb.dataset.id = String(ev.id);
+              cb.style.cssText = 'width:auto;margin:0;cursor:pointer;';
+              cb.addEventListener('change', updateMgrEventSelectionUi);
 
               const thumb = document.createElement('img');
               thumb.className = 'event-thumb';
@@ -3784,15 +4281,51 @@
               });
               actions.appendChild(delBtn);
 
+              row.appendChild(cb);
               row.appendChild(thumb);
               row.appendChild(info);
               row.appendChild(actions);
               mgrEventList.appendChild(row);
             });
+            updateMgrEventSelectionUi();
           })
           .catch(() => {
             mgrEventList.innerHTML = '<div style="color:#f87171;padding:24px;text-align:center;">加载过车记录失败</div>';
+            updateMgrEventSelectionUi();
           });
+      }
+
+      if (mgrVideoSelectAll) {
+        mgrVideoSelectAll.addEventListener('change', () => {
+          document.querySelectorAll('.mgr-video-cb').forEach(cb => { cb.checked = mgrVideoSelectAll.checked; });
+          updateMgrVideoSelectionUi();
+        });
+      }
+      if (mgrVideoDelSelectedBtn) {
+        mgrVideoDelSelectedBtn.addEventListener('click', () => {
+          const names = Array.from(document.querySelectorAll('.mgr-video-cb:checked')).map(cb => cb.dataset.name).filter(Boolean);
+          if (!names.length) return;
+          if (!confirm(`确定删除选中的 ${names.length} 个录像文件（同时清理关联过车记录）？`)) return;
+          Promise.all(names.map(n => fetch(`/files/${encodeURIComponent(n)}`, { method: 'DELETE', credentials: 'include' })))
+            .then(() => { loadManageVideos(); loadManageEvents(); })
+            .catch(() => alert('批量删除失败'));
+        });
+      }
+      if (mgrEventSelectAll) {
+        mgrEventSelectAll.addEventListener('change', () => {
+          document.querySelectorAll('.mgr-event-cb').forEach(cb => { cb.checked = mgrEventSelectAll.checked; });
+          updateMgrEventSelectionUi();
+        });
+      }
+      if (mgrEventDelSelectedBtn) {
+        mgrEventDelSelectedBtn.addEventListener('click', () => {
+          const ids = Array.from(document.querySelectorAll('.mgr-event-cb:checked')).map(cb => cb.dataset.id).filter(Boolean);
+          if (!ids.length) return;
+          if (!confirm(`确定删除选中的 ${ids.length} 条车牌过车记录？`)) return;
+          fetch(`/api/events/delete?ids=${encodeURIComponent(ids.join(','))}`, { method: 'POST', credentials: 'include' })
+            .then(() => loadManageEvents())
+            .catch(() => alert('批量删除失败'));
+        });
       }
 
       if (mgrVideoRefreshBtn) mgrVideoRefreshBtn.addEventListener('click', loadManageVideos);
@@ -3801,9 +4334,13 @@
       if (mgrEventType) mgrEventType.addEventListener('change', loadManageEvents);
       if (mgrExportCsvBtn) {
         mgrExportCsvBtn.addEventListener('click', () => {
-          if (!lastMgrEvents.length) return alert('暂无可导出的记录');
+          const checkedIds = new Set(Array.from(document.querySelectorAll('.mgr-event-cb:checked')).map(cb => cb.dataset.id));
+          const exportList = checkedIds.size > 0
+            ? lastMgrEvents.filter(ev => checkedIds.has(String(ev.id)))
+            : lastMgrEvents;
+          if (!exportList.length) return alert('暂无可导出的记录');
           const rows = [['ID', '车牌号', '类型', '置信度', '过车时间', '关联录像', '偏移(ms)']];
-          lastMgrEvents.forEach(ev => {
+          exportList.forEach(ev => {
             rows.push([
               ev.id,
               `"${String(ev.plateCode || '').replace(/"/g, '""')}"`,
@@ -3951,15 +4488,191 @@
         });
       }
 
-      function setZoom(ms, activeBtn) {
+      function formatDateKey(ms) {
+        const d = new Date(ms || Date.now());
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      }
+
+      function getDayBoundsMs(dateStr) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr || '');
+        const d = m
+          ? new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10), 0, 0, 0, 0)
+          : (() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0); })();
+        const dayStartMs = d.getTime();
+        return {
+          dayStartMs,
+          dayMidMs: dayStartMs + 12 * 3600_000,
+          dayEndMs: dayStartMs + 24 * 3600_000
+        };
+      }
+
+      function shiftDateKey(dateStr, deltaDays) {
+        const { dayStartMs } = getDayBoundsMs(dateStr || formatDateKey(Date.now()));
+        return formatDateKey(dayStartMs + deltaDays * 86_400_000 + 3600_000);
+      }
+
+      const dateSegmentCounts = new Map();
+      let calViewYear = new Date().getFullYear();
+      let calViewMonth = new Date().getMonth();
+
+      function syncDateControls() {
+        if (!selectedDateStr) {
+          selectedDateStr = segments.length
+            ? formatDateKey(segments[segments.length - 1].startMs)
+            : formatDateKey(Date.now());
+        }
+        if (pbDateBtnText) {
+          const cnt = dateSegmentCounts.get(selectedDateStr) || 0;
+          pbDateBtnText.textContent = cnt > 0 ? `${selectedDateStr} (${cnt})` : selectedDateStr;
+        }
+        if (pbCalendarPopup && pbCalendarPopup.style.display !== 'none') {
+          renderCalendar();
+        }
+      }
+
+      function renderCalendar() {
+        if (!pbCalGrid || !pbCalMonthLabel) return;
+        pbCalMonthLabel.textContent = `${calViewYear}-${String(calViewMonth + 1).padStart(2, '0')}`;
+        pbCalGrid.innerHTML = '';
+
+        const todayKey = formatDateKey(Date.now());
+        const firstDay = new Date(calViewYear, calViewMonth, 1);
+        const startWeekday = firstDay.getDay(); // 0 = Sun
+        const gridStart = new Date(calViewYear, calViewMonth, 1 - startWeekday);
+
+        for (let i = 0; i < 42; i++) {
+          const cellDate = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
+          const dStr = formatDateKey(cellDate.getTime());
+          const recCount = dateSegmentCounts.get(dStr) || 0;
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'pb-cal-day';
+          if (cellDate.getMonth() !== calViewMonth) btn.classList.add('other-month');
+          if (dStr === todayKey) btn.classList.add('today');
+          if (dStr === selectedDateStr) btn.classList.add('selected');
+          if (recCount > 0) btn.classList.add('has-rec');
+
+          btn.textContent = String(cellDate.getDate());
+          if (recCount > 0) {
+            btn.title = `${dStr} (${recCount})`;
+            const dot = document.createElement('span');
+            dot.className = 'pb-cal-dot';
+            btn.appendChild(dot);
+          } else {
+            btn.title = dStr;
+          }
+
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectDate(dStr, true);
+            if (pbCalendarPopup) pbCalendarPopup.style.display = 'none';
+          });
+          pbCalGrid.appendChild(btn);
+        }
+      }
+
+      function populateDateSelect() {
+        dateSegmentCounts.clear();
+        segments.forEach(seg => {
+          const startKey = formatDateKey(seg.startMs);
+          dateSegmentCounts.set(startKey, (dateSegmentCounts.get(startKey) || 0) + 1);
+          const endKey = formatDateKey(seg.endMs);
+          if (endKey !== startKey) dateSegmentCounts.set(endKey, (dateSegmentCounts.get(endKey) || 0) + 1);
+        });
+        if (!selectedDateStr) {
+          selectedDateStr = segments.length
+            ? formatDateKey(segments[segments.length - 1].startMs)
+            : formatDateKey(Date.now());
+        }
+        syncDateControls();
+      }
+
+      function selectDate(dateStr, jumpToSegment = true) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr || '')) return;
+        selectedDateStr = dateStr;
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+        if (m) {
+          calViewYear = parseInt(m[1], 10);
+          calViewMonth = parseInt(m[2], 10) - 1;
+        }
+        syncDateControls();
+        const { dayStartMs, dayMidMs, dayEndMs } = getDayBoundsMs(selectedDateStr);
+        if (jumpToSegment) {
+          const daySeg = segments.find(s => s.endMs >= dayStartMs && s.startMs <= dayEndMs);
+          if (daySeg) {
+            currentWallMs = Math.max(dayStartMs, daySeg.startMs);
+          } else {
+            currentWallMs = tlZoomMode === 'pm' ? dayMidMs : dayStartMs;
+          }
+        }
+        drawTimeline();
+      }
+
+      function syncSelectedDateToMs(ms) {
+        if (!ms) return;
+        const key = formatDateKey(ms);
+        if (key !== selectedDateStr) {
+          selectedDateStr = key;
+          syncDateControls();
+        }
+      }
+
+      function setZoom(mode, ms, activeBtn) {
+        tlZoomMode = mode;
         tlZoomMs = ms;
-        [tlZoomAll, tlZoom1h, tlZoom15m].forEach(b => b && b.classList.remove('active'));
+        [tlZoomAll, tlZoomAm, tlZoomPm, tlZoom1h, tlZoom15m].forEach(b => b && b.classList.remove('active'));
         if (activeBtn) activeBtn.classList.add('active');
         drawTimeline();
       }
-      if (tlZoomAll) tlZoomAll.addEventListener('click', () => setZoom(0, tlZoomAll));
-      if (tlZoom1h) tlZoom1h.addEventListener('click', () => setZoom(3600_000, tlZoom1h));
-      if (tlZoom15m) tlZoom15m.addEventListener('click', () => setZoom(900_000, tlZoom15m));
+      if (tlZoomAll) tlZoomAll.addEventListener('click', () => setZoom('all', 86_400_000, tlZoomAll));
+      if (tlZoomAm) tlZoomAm.addEventListener('click', () => setZoom('am', 43_200_000, tlZoomAm));
+      if (tlZoomPm) tlZoomPm.addEventListener('click', () => setZoom('pm', 43_200_000, tlZoomPm));
+      if (tlZoom1h) tlZoom1h.addEventListener('click', () => setZoom('1h', 3600_000, tlZoom1h));
+      if (tlZoom15m) tlZoom15m.addEventListener('click', () => setZoom('15m', 900_000, tlZoom15m));
+
+      if (pbPrevDayBtn) pbPrevDayBtn.addEventListener('click', () => selectDate(shiftDateKey(selectedDateStr, -1), true));
+      if (pbNextDayBtn) pbNextDayBtn.addEventListener('click', () => selectDate(shiftDateKey(selectedDateStr, 1), true));
+      if (pbDateBtn && pbCalendarPopup) {
+        pbDateBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isOpen = pbCalendarPopup.style.display !== 'none';
+          if (isOpen) {
+            pbCalendarPopup.style.display = 'none';
+          } else {
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(selectedDateStr || '');
+            if (m) {
+              calViewYear = parseInt(m[1], 10);
+              calViewMonth = parseInt(m[2], 10) - 1;
+            }
+            renderCalendar();
+            pbCalendarPopup.style.display = 'block';
+          }
+        });
+      }
+      if (pbCalPrevMonth) pbCalPrevMonth.addEventListener('click', (e) => {
+        e.stopPropagation();
+        calViewMonth -= 1;
+        if (calViewMonth < 0) { calViewMonth = 11; calViewYear -= 1; }
+        renderCalendar();
+      });
+      if (pbCalNextMonth) pbCalNextMonth.addEventListener('click', (e) => {
+        e.stopPropagation();
+        calViewMonth += 1;
+        if (calViewMonth > 11) { calViewMonth = 0; calViewYear += 1; }
+        renderCalendar();
+      });
+      if (pbCalTodayBtn) pbCalTodayBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectDate(formatDateKey(Date.now()), true);
+        if (pbCalendarPopup) pbCalendarPopup.style.display = 'none';
+      });
+      document.addEventListener('click', (e) => {
+        if (pbCalendarPopup && pbCalendarPopup.style.display !== 'none' && pbCalWrap && !pbCalWrap.contains(e.target)) {
+          pbCalendarPopup.style.display = 'none';
+        }
+      });
 
       function loadSegmentsAndTimeline() {
         return Promise.all([
@@ -3980,6 +4693,7 @@
           if (currentSegIdx < 0 && segments.length > 0) {
             currentWallMs = segments[segments.length - 1].startMs;
           }
+          populateDateSelect();
           drawTimeline();
         });
       }
@@ -4090,24 +4804,33 @@
           targetMs = segments[idx].startMs;
         }
         currentWallMs = targetMs;
+        syncSelectedDateToMs(targetMs);
         playSegmentAt(idx, offsetSec, `时间轨定位: ${formatTime(targetMs)}`);
       }
 
       function getTimelineBounds() {
-        if (!segments.length) {
-          const now = Date.now();
-          return { minMs: now - 3600_000, maxMs: now };
+        const dateKey = selectedDateStr || formatDateKey(currentWallMs || Date.now());
+        const { dayStartMs, dayMidMs, dayEndMs } = getDayBoundsMs(dateKey);
+
+        if (tlZoomMode === 'am') {
+          return { minMs: dayStartMs, maxMs: dayMidMs };
         }
-        const fullMin = segments[0].startMs;
-        const fullMax = Math.max(fullMin + 60_000, segments[segments.length - 1].endMs);
-        if (!tlZoomMs || fullMax - fullMin <= tlZoomMs) {
-          return { minMs: fullMin, maxMs: fullMax };
+        if (tlZoomMode === 'pm') {
+          return { minMs: dayMidMs, maxMs: dayEndMs };
         }
-        const center = currentWallMs || fullMax;
+        if (tlZoomMode === 'all' || !tlZoomMs || tlZoomMs >= 86_400_000) {
+          return { minMs: dayStartMs, maxMs: dayEndMs };
+        }
+
+        let center = currentWallMs;
+        if (!center || center < dayStartMs || center > dayEndMs) {
+          const daySeg = segments.find(s => s.endMs >= dayStartMs && s.startMs <= dayEndMs);
+          center = daySeg ? Math.max(dayStartMs, daySeg.startMs) : dayMidMs;
+        }
         let minMs = center - tlZoomMs / 2;
         let maxMs = center + tlZoomMs / 2;
-        if (minMs < fullMin) { minMs = fullMin; maxMs = fullMin + tlZoomMs; }
-        if (maxMs > fullMax) { maxMs = fullMax; minMs = fullMax - tlZoomMs; }
+        if (minMs < dayStartMs) { minMs = dayStartMs; maxMs = dayStartMs + tlZoomMs; }
+        if (maxMs > dayEndMs) { maxMs = dayEndMs; minMs = dayEndMs - tlZoomMs; }
         return { minMs, maxMs };
       }
 
@@ -4156,12 +4879,11 @@
           ctx.fillText(label, lx, 3);
         }
 
-        // 3. 过车事件打点
+        // 3. 过车事件打点（统一使用绿色）
+        ctx.fillStyle = '#22c55e';
         for (const ev of timelineEvents) {
           if (ev.eventTimeMs < minMs || ev.eventTimeMs > maxMs) continue;
           const x = toX(ev.eventTimeMs);
-          const st = PLATE_TYPE_STYLES[ev.plateType] || DEFAULT_PLATE_STYLE;
-          ctx.fillStyle = st.border || '#38bdf8';
           ctx.fillRect(x - 1.5, 20, 3, 28);
           ctx.beginPath();
           ctx.arc(x, 56, 3.5, 0, Math.PI * 2);
@@ -4378,6 +5100,7 @@
           if (activeSlot !== slotId || currentSegIdx < 0 || !segments[currentSegIdx]) return;
           const seg = segments[currentSegIdx];
           currentWallMs = seg.startMs + (v.currentTime || 0) * 1000;
+          syncSelectedDateToMs(currentWallMs);
           if (clockTextEl) clockTextEl.textContent = formatTime(currentWallMs);
           drawTimeline();
           renderPlaybackCardAndOverlay(currentWallMs);
@@ -4500,6 +5223,7 @@
               const rawSec = Math.floor((ev.videoOffsetMs || 0) / 1000);
               const preRollSec = Math.max(0, rawSec - 2);
               currentWallMs = Math.max(0, (ev.eventTimeMs || 0) - 2000);
+              syncSelectedDateToMs(currentWallMs);
               if (segIdx >= 0) {
                 playSegmentAt(
                   segIdx,
